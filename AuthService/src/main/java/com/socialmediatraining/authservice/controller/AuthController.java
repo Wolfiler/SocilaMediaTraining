@@ -2,15 +2,19 @@ package com.socialmediatraining.authservice.controller;
 
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-public class AuthController {
+@Validated
+public class AuthController {//Might be worth it to split the controller into User controller and general controller
 
     private final AuthService authService;
 
@@ -20,11 +24,12 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<String> signUp(@RequestBody UserSignUpRequest request) {
+    public ResponseEntity<String> signUp(@Valid @RequestBody UserSignUpRequest request) {
         return ResponseEntity.created(URI.create("/api/v1/auth/signup")).body(authService.signUp(request));
     }
 
     @GetMapping("/welcome")
+    @PreAuthorize("@roleUtils.hasAnyUserRole(authentication)")
     public ResponseEntity<String> welcome() {
         return ResponseEntity.ok().body("Welcome user !");
     }
@@ -34,5 +39,4 @@ public class AuthController {
     public ResponseEntity<String> signIn() {
         return ResponseEntity.ok().body("Sign in here !");
     }
-
 }

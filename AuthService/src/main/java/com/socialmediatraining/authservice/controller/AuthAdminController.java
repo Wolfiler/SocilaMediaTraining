@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth/admin")
+@PreAuthorize("@roleUtils.hasAnyAdminRole(authentication)")
 public class AuthAdminController {
 
     @GetMapping("/welcome")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<String> signIn() {
         return ResponseEntity.ok().body("Welcome admin");
     }

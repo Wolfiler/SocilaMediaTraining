@@ -2,6 +2,8 @@ package com.socialmediatraining.authservice.service;
 
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
+import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
+import com.socialmediatraining.exceptioncommons.exception.InvalidAuthorizationHeaderException;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
@@ -31,7 +33,7 @@ public class AuthService {
         this.keycloakProperties = keycloakProperties;
     }
 
-    private static UserRepresentation getUserRepresentation(UserSignUpRequest signUpRequest) {
+    public UserRepresentation getUserRepresentation(UserSignUpRequest signUpRequest) {
         UserRepresentation user = new UserRepresentation();
         user.setUsername(signUpRequest.username());
         user.setEmail(signUpRequest.email());
@@ -48,7 +50,8 @@ public class AuthService {
         return user;
     }
 
-    public String signUp(UserSignUpRequest signUpRequest) {
+    //TODO: missing user already exists handling
+    public String signUp(UserSignUpRequest signUpRequest) throws AuthUserCreationException {
         try {
             UserRepresentation user = getUserRepresentation(signUpRequest);
 
@@ -56,15 +59,15 @@ public class AuthService {
                 if (response.getStatus() == 201) {
                     return "User created successfully";
                 } else {
-                    return "Failed to create user: " + response.readEntity(String.class);
+                    throw new AuthUserCreationException("Failed to create user: " + response.readEntity(String.class));
                 }
             }
         } catch (Exception e) {
-            return "Error creating user: " + e.getMessage();
+            throw new AuthUserCreationException("Error creating user, the realm might be unavailable. Error message: " + e.getMessage());
         }
     }
 
-    public void logout(String authHeader,String refreshToken) {
+    public void logout(String authHeader,String refreshToken) throws InvalidAuthorizationHeaderException {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String logoutUrl = String.format("%s/realms/%s/protocol/openid-connect/logout", keycloakProperties.authServerUrl, keycloakProperties.realm);
             try {
@@ -86,6 +89,6 @@ public class AuthService {
                 throw new RuntimeException("Error during logout: " + e.getMessage());
             }
         }
-        throw new RuntimeException("ERROR: Invalid authorization header");
+        throw new InvalidAuthorizationHeaderException("ERROR: Invalid authorization header");
     }
 }

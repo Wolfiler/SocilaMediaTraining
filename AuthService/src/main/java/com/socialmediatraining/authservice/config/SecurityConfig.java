@@ -2,6 +2,9 @@ package com.socialmediatraining.authservice.config;
 
 import com.socialmediatraining.authservice.handler.CustomLogoutHandler;
 import com.socialmediatraining.authservice.tool.JwtAuthConverter;
+import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
+import com.socialmediatraining.authservice.tool.RoleUtils;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,12 +17,13 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
+import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
-    private final static String[] authorizedPaths = {"/api/v1/auth/login","/api/v1/auth/signup","/api/v1/auth/logout","/api/v1/auth/welcome-new-user"};
+    @Getter
+    private final static String[] authorizedPaths = {"/api/v1/auth/signup","/api/v1/auth/signin"};
     private final static String[] adminPaths = {"/api/v1/auth/admin/**"};
     private final static String[] defaultApiPaths = {"/api/v1/auth/**"};
     private final static String[] userPaths = {"/api/v1/auth/user/**"};
@@ -32,9 +36,7 @@ public class SecurityConfig {
         this.keycloakProperties = keycloakProperties;
     }
 
-    private enum role {
-        USER,ADMIN
-    }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -45,8 +47,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizeRequest -> {
                     authorizeRequest.requestMatchers(authorizedPaths).permitAll();
-                    authorizeRequest.requestMatchers(adminPaths).hasRole(role.ADMIN.name());
-                    authorizeRequest.requestMatchers(userPaths).hasAnyRole(role.ADMIN.name(),role.USER.name());
+                    authorizeRequest.requestMatchers(adminPaths).hasAnyRole(RoleUtils.GetAdminRoleNamesAsList().toArray(new String[0]));
+                    authorizeRequest.requestMatchers(userPaths).hasAnyRole(RoleUtils.GetUserRoleNamesAsList().toArray(new String[0]));
                     authorizeRequest.requestMatchers(defaultApiPaths).authenticated();
                     authorizeRequest.anyRequest().authenticated();
                 })
@@ -71,6 +73,6 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withJwkSetUri(keycloakProperties.jwkSetUri).build();
+        return NimbusJwtDecoder.withJwkSetUri(keycloakProperties.getJwkSetUri()).build();
     }
 }
