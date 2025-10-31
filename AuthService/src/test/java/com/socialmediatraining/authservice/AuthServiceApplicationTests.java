@@ -4,7 +4,11 @@ import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.service.AuthService;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
 import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,29 +19,19 @@ import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceApplicationTests {
-
     @Mock
     private Keycloak keycloak;
     @Mock
@@ -50,12 +44,9 @@ class AuthServiceApplicationTests {
     private RealmResource realmResource;
     @Mock
     private Response response;
-
     @InjectMocks
     private AuthService authService;
-
     private UserSignUpRequest userSignUpRequest;
-
 
     @BeforeEach
     void setup(){
@@ -156,5 +147,35 @@ class AuthServiceApplicationTests {
         assertThat(authUserCreationExceptionThrown).isTrue();
     }
 
-    //TODO test logout
+    private final MockWebServer mockWebServer = new MockWebServer();
+    
+    @Test
+    void logout_should_work_when_given_authorization_and_refresh_token() throws InterruptedException {
+        String mockServerUrl = mockWebServer.url("/").toString();
+        given(keycloakProperties.getAuthServerUrl()).willReturn(mockServerUrl);
+        given(keycloakProperties.getRealm()).willReturn("test-realm");
+        given(keycloakProperties.getClientId()).willReturn("test-client");
+        given(keycloakProperties.getClientSecret()).willReturn("test-secret");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("User logged out")
+        );
+
+        WebClient testWebClient = WebClient.builder()
+                .baseUrl(mockServerUrl)
+                .build();
+
+        AuthService testAuthService = new AuthService(keycloak, testWebClient, keycloakProperties);
+        String response = testAuthService.logout("Bearer token", "refreshtoken");
+
+        RecordedRequest recordedRequest = mockWebServer.takeRequest();
+
+        assertThat(response).isEqualTo("User logged out");
+        assertThat(recordedRequest.getMethod()).isEqualTo("POST");
+        assertThat(recordedRequest.getPath()).contains("/realms/test-realm/protocol/openid-connect/logout");
+        assertThat(recordedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer token");
+    }
 }

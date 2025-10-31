@@ -67,17 +67,17 @@ public class AuthService {
         }
     }
 
-    public void logout(String authHeader,String refreshToken) throws InvalidAuthorizationHeaderException {
+    public String logout(String authHeader,String refreshToken) throws InvalidAuthorizationHeaderException {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String logoutUrl = String.format("%s/realms/%s/protocol/openid-connect/logout", keycloakProperties.authServerUrl, keycloakProperties.realm);
+            String logoutUrl = String.format("%s/realms/%s/protocol/openid-connect/logout", keycloakProperties.getAuthServerUrl(), keycloakProperties.getRealm());
             try {
-                webClient.post()
+                String clientResponse = webClient.post()
                         .uri(logoutUrl, UriBuilder::build)
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .header("Authorization", authHeader)
                         .body(BodyInserters
-                                .fromFormData("client_id", keycloakProperties.clientId)
-                                .with("client_secret", keycloakProperties.clientSecret)
+                                .fromFormData("client_id", keycloakProperties.getClientId())
+                                .with("client_secret", keycloakProperties.getClientSecret())
                                 .with("refresh_token", refreshToken)
                         )
                         .retrieve()
@@ -85,6 +85,7 @@ public class AuthService {
                         .onStatus(HttpStatus.NOT_FOUND::equals, response -> response.bodyToMono(String.class).map(Exception::new))
                         .bodyToMono(String.class)
                         .block();
+                return clientResponse != null ? clientResponse : "User logged out";
             } catch (Exception e) {
                 throw new RuntimeException("Error during logout: " + e.getMessage());
             }
