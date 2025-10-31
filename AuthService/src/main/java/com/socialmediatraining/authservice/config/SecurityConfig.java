@@ -36,8 +36,6 @@ public class SecurityConfig {
         this.keycloakProperties = keycloakProperties;
     }
 
-
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();

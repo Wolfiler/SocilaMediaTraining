@@ -148,7 +148,7 @@ class AuthServiceApplicationTests {
     }
 
     private final MockWebServer mockWebServer = new MockWebServer();
-    
+
     @Test
     void logout_should_work_when_given_authorization_and_refresh_token() throws InterruptedException {
         String mockServerUrl = mockWebServer.url("/").toString();
