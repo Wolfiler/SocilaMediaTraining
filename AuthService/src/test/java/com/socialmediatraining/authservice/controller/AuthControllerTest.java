@@ -46,7 +46,12 @@ class AuthControllerTest {
                 "testUser",
                 "test@test.com",
                 "test1234",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -69,7 +74,12 @@ class AuthControllerTest {
                 "testUser",
                 "invalid-email",
                 "test1234",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -86,7 +96,12 @@ class AuthControllerTest {
                 "",
                 "user@user.com",
                 "test1234",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -103,7 +118,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -120,7 +140,12 @@ class AuthControllerTest {
                 "test",
                 "user@.com",
                 "test",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -137,7 +162,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of()
+                List.of(),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -154,7 +184,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("INVALID")
+                List.of("INVALID"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -171,7 +206,12 @@ class AuthControllerTest {
                 "test",
                 "test",
                 "test",
-                List.of("INVALID")
+                List.of("INVALID"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -188,7 +228,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("USER","USER")
+                List.of("USER","USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -205,7 +250,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("user","ADMIN")
+                List.of("user","ADMIN"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -223,7 +273,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("USER","ADMIN")
+                List.of("USER","ADMIN"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
@@ -239,7 +294,12 @@ class AuthControllerTest {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("USER ")
+                List.of("USER "),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
+
         );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 

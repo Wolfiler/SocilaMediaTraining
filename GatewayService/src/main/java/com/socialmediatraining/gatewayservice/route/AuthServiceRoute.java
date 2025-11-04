@@ -18,7 +18,9 @@ public class AuthServiceRoute {
     public RouterFunction<ServerResponse> AuthRoutes() {
         return GatewayRouterFunctions.route("authentication-service")
                 .GET("/api/v1/auth/**", http())
+                .GET("/api/v1/user/**", http())
                 .POST("/api/v1/auth/**", http())
+                .POST("/api/v1/user/**", http())
                 .filter(lb("authentication-service"))
                 .build().filter((request, next) -> {
                     log.info("Request: {}", request.uri());

@@ -1,5 +1,6 @@
 package com.socialmediatraining.authservice;
 
+import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.service.AuthService;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -21,11 +23,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -35,11 +42,15 @@ class AuthServiceApplicationTests {
     @Mock
     private Keycloak keycloak;
     @Mock
-    private WebClient webClient;
+    private WebClient.Builder webClient;
     @Mock
     private KeycloakPropertiesUtils keycloakProperties;
     @Mock
     private UsersResource usersResource;
+    @Mock
+    private UserResource userResource;
+    @Mock
+    private UserRepresentation userRepresentation;
     @Mock
     private RealmResource realmResource;
     @Mock
@@ -54,7 +65,11 @@ class AuthServiceApplicationTests {
                 "test",
                 "user@user.com",
                 "test",
-                List.of("USER")
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "2000-01-01",
+                "description"
         );
     }
 
@@ -84,8 +99,84 @@ class AuthServiceApplicationTests {
 
         String result = authService.signUp(userSignUpRequest);
 
-        assertThat(result).isEqualTo("User created successfully");
+        assertThat(result).isEqualTo("User successfully created");
         verify(usersResource).create(any(UserRepresentation.class));
+    }
+
+    @Test
+    void signUp_should_return_user_date_of_birth_format_error() {
+        userSignUpRequest = new UserSignUpRequest(
+                "test",
+                "user@user.com",
+                "test",
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "12-12-2000",
+                "description"
+        );
+
+        Exception exception = assertThrows(AuthUserCreationException.class, () -> {
+            authService.signUp(userSignUpRequest);
+        });
+
+        assertThat(exception.getMessage()).contains("Attribute dateOfBirth is not using the correct yyyy-MM-dd format");
+    }
+
+    @Test
+    void signUp_should_return_user_date_of_birth_format_error_with_impossible_date() {
+        userSignUpRequest = new UserSignUpRequest(
+                "test",
+                "user@user.com",
+                "test",
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "2000-15-01",
+                "description"
+        );
+
+        Exception exception = assertThrows(AuthUserCreationException.class, () -> {
+            authService.signUp(userSignUpRequest);
+        });
+
+        assertThat(exception.getMessage()).contains("Attribute dateOfBirth is using an impossible date");
+    }
+
+    @Test
+    void signUp_should_return_wrong_email_format() {
+        userSignUpRequest = new UserSignUpRequest(
+                "test",
+                "user.user.com",
+                "test",
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "2000-01-01",
+                "description"
+        );
+
+        UserSignUpRequest userSignUpRequest2 = new UserSignUpRequest(
+                "test",
+                "user@userdotcom",
+                "test",
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "2000-01-01",
+                "description"
+        );
+
+        Exception exception1 = assertThrows(AuthUserCreationException.class, () -> {
+            authService.signUp(userSignUpRequest);
+        });
+
+        Exception exception2 = assertThrows(AuthUserCreationException.class, () -> {
+            authService.signUp(userSignUpRequest2);
+        });
+
+        assertThat(exception1.getMessage()).contains("Attribute email is not using the correct format");
+        assertThat(exception2.getMessage()).contains("Attribute email is not using the correct format");
     }
 
     @Test
@@ -111,7 +202,6 @@ class AuthServiceApplicationTests {
 
     @Test
     void signUp_should_throw_AuthUserCreationException_if_realm_not_available() {
-        given(keycloak.realm(any())).willReturn(null);
         boolean authUserCreationExceptionThrown = false;
 
         String errorMessage = "";
@@ -123,15 +213,12 @@ class AuthServiceApplicationTests {
             errorMessage = e.getMessage();
         }
 
-        assertThat(errorMessage).contains("Error creating user, the realm might be unavailable");
+        assertThat(errorMessage).contains("Error during user creation process");
         assertThat(authUserCreationExceptionThrown).isTrue();
     }
 
     @Test
     void signUp_should_throw_AuthUserCreationException_if_user_resources_not_available() {
-        given(keycloak.realm(any())).willReturn(realmResource);
-        given(realmResource.users()).willReturn(null);
-
         boolean authUserCreationExceptionThrown = false;
 
         String errorMessage = "";
@@ -143,7 +230,7 @@ class AuthServiceApplicationTests {
             errorMessage = e.getMessage();
         }
 
-        assertThat(errorMessage).contains("Error creating user, the realm might be unavailable");
+        assertThat(errorMessage).contains("Error during user creation process");
         assertThat(authUserCreationExceptionThrown).isTrue();
     }
 
@@ -164,9 +251,7 @@ class AuthServiceApplicationTests {
                         .setBody("User logged out")
         );
 
-        WebClient testWebClient = WebClient.builder()
-                .baseUrl(mockServerUrl)
-                .build();
+        WebClient.Builder testWebClient = WebClient.builder().baseUrl(mockServerUrl);
 
         AuthService testAuthService = new AuthService(keycloak, testWebClient, keycloakProperties);
         String response = testAuthService.logout("Bearer token", "refreshtoken");
@@ -177,5 +262,55 @@ class AuthServiceApplicationTests {
         assertThat(recordedRequest.getMethod()).isEqualTo("POST");
         assertThat(recordedRequest.getPath()).contains("/realms/test-realm/protocol/openid-connect/logout");
         assertThat(recordedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer token");
+    }
+
+    @Test
+    void get_authenticated_user_should_return_user_data(){
+        given(keycloak.realm(any())).willReturn(realmResource);
+        given(keycloak.realm(any()).users()).willReturn(usersResource);
+        given(usersResource.get(anyString())).willReturn(userResource);
+        given(userResource.toRepresentation()).willReturn(userRepresentation);
+
+        given(userRepresentation.getId()).willReturn("valid-id-for-user");
+        given(userRepresentation.getFirstName()).willReturn("firstName");
+        given(userRepresentation.getLastName()).willReturn("lastName");
+        given(userRepresentation.getEmail()).willReturn("email");
+        given(userRepresentation.getCreatedTimestamp()).willReturn(123456789L);
+
+        Date date = new Date();
+        date.setTime(userRepresentation.getCreatedTimestamp());
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+
+        given(userRepresentation.getAttributes()).willReturn(new HashMap<>(){
+            {
+                put("dateOfBirth", List.of("2000-01-01"));
+                put("description", List.of("description"));
+                put("profilePicture", List.of("profilePicture.png"));
+            }
+        });
+
+        UserResponse userResponse = authService.getUserInformation("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6" +
+                "IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTA" +
+                "yMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30");
+
+        assertThat(userResponse.id()).isEqualTo("valid-id-for-user");
+        assertThat(userResponse.firstName()).isEqualTo("firstName");
+        assertThat(userResponse.lastName()).isEqualTo("lastName");
+        assertThat(userResponse.email()).isEqualTo("email");
+        assertThat(userResponse.dateOfBirth()).isEqualTo("2000-01-01");
+        assertThat(userResponse.creationDate()).isEqualTo(sdf.format(date));
+        assertThat(userResponse.description()).isEqualTo("description");
+        assertThat(userResponse.profilePicture()).isEqualTo("profilePicture.png");
+    }
+
+    @Test
+    void get_authenticated_user_should_throw_runtimeException_with_invalid_token(){
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            authService.getUserInformation("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiezaeez" +
+                    "aeaeqqIxMjM0NTYf3ODkwIiwibmFtZSI6IkpvfaG4gRG9lIifwiYWRtaW4iOnRydWUsImlhdfCI6MTUxNjIzOTAyMn0.K" +
+                    "MUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30");
+        });
+
+        assertThat(exception.getMessage()).contains("Error processing JSON");
     }
 }

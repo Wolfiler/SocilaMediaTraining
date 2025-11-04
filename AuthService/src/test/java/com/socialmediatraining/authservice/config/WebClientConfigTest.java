@@ -15,7 +15,7 @@ class WebClientConfigTest {
     @BeforeEach
     public void setUp() {
         webClientConfig = new WebClientConfig();
-        webClient = webClientConfig.webClient();
+        webClient = webClientConfig.webClient().build();
     }
 
     @Test

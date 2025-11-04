@@ -23,7 +23,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -75,9 +74,13 @@ class SecurityConfigTest {
     void test_visit_signUp_as_unauthorized_should_be_created() throws Exception {
         UserSignUpRequest request = new UserSignUpRequest(
                 "test",
-                "test@test.com",
-                "test1234",
-                new ArrayList<>(List.of("USER"))
+                "user@user.com",
+                "test",
+                List.of("USER"),
+                "fistName",
+                "lastName",
+                "description",
+                "2000-01-01"
         ) ;
 
         String jsonRequest = new ObjectMapper().writeValueAsString(request);

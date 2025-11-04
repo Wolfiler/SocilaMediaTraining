@@ -16,6 +16,7 @@ public class SecurityConfig {
     private final static String[] authorizedPaths = {
             "/api/v1/auth/signup",
             "/api/v1/auth/signin",
+            "/api/v1/user/new-user",
             "/realms/social-media-training/protocol/openid-connect/certs"
     };
 
