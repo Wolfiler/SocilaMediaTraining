@@ -2,12 +2,15 @@ package com.socialmediatraining.authservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
+import org.hibernate.validator.constraints.Length;
 import org.hibernate.validator.constraints.UniqueElements;
 
 import java.util.List;
 
 public record UserSignUpRequest(
          @NotBlank
+         @Length(min = 3, max = 25, message = "Username must be between 3 and 25 characters")
+         @Pattern(regexp = "^[a-z_]*$", message = "Forbidden characters in username. It must only contain lower case letters and underscores")
          String username,
          @Email
          String email,

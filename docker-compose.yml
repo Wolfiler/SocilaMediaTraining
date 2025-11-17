@@ -1,17 +1,32 @@
 services:
-  mysql:
-    image: mysql:8.3.0
-    container_name: social_media_training
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${SOCIAL_MEDIA_MYSQL_ADMIN_PASSWORD}
-      MYSQL_DATABASE: social_media_db
+
+  postgres:
+    image: 'postgres:latest'
+    container_name: postgres_db
     ports:
-      - "3306:3306"
+      - 5432:5432
+    environment:
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sm_content_service_db
     volumes:
-      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - db-data:/var/lib/mysql-travel
-      - db-data:/var/log/mysql-travel
+      - ./pg_data:/var/lib/postgresql
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    ports:
+      - 5050:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: pgadmin_password
+    depends_on:
+      - postgres
+    volumes:
+      - ./pgadmin-data/:/var/lib/pgadmin/
+    restart: unless-stopped
 
   keycloak-db:
     image: mysql:8.3.0
@@ -44,4 +59,4 @@ services:
       - keycloak-db
 
 volumes:
-  db-data:
+  postgres_data:

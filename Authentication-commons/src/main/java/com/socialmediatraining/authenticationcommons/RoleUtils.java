@@ -1,9 +1,8 @@
-package com.socialmediatraining.authservice.tool;
-
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Component;
+package com.socialmediatraining.authenticationcommons;
 
 import java.util.List;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RoleUtils {

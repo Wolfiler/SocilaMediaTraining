@@ -1,13 +1,13 @@
 package com.socialmediatraining.authservice.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
+import com.socialmediatraining.authservice.dto.UserUpdateRequest;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
 import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
 import com.socialmediatraining.exceptioncommons.exception.InvalidAuthorizationHeaderException;
+import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
@@ -15,28 +15,23 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriBuilder;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFromAuthHeader;
+
 @Service
 @Slf4j
 public class AuthService {
     private final Keycloak keycloak;
-    private final WebClient.Builder webClient;
     private final KeycloakPropertiesUtils keycloakProperties;
 
     @Autowired
-    public AuthService(Keycloak keycloak, WebClient.Builder webclient, KeycloakPropertiesUtils keycloakProperties) {
+    public AuthService(Keycloak keycloak, KeycloakPropertiesUtils keycloakProperties) {
         this.keycloak = keycloak;
-        this.webClient = webclient;
         this.keycloakProperties = keycloakProperties;
     }
 
@@ -57,32 +52,32 @@ public class AuthService {
         return user;
     }
 
-    private Map<String, List<String>> createUserAttributesMap(UserSignUpRequest signUpRequest){
+    private Map<String, List<String>> createUserAttributesMap(
+            String firstName, String lastName, String dateOfBirth,String description,String profilePicture){
         Map<String, List<String>> attributes = new HashMap<>();
-        attributes.put("firstName", Collections.singletonList(signUpRequest.firstName()));
-        attributes.put("lastName",Collections.singletonList(signUpRequest.lastName()));
-        attributes.put("dateOfBirth",Collections.singletonList(signUpRequest.dateOfBirth()));
-        attributes.put("description",Collections.singletonList(signUpRequest.description()));
-        attributes.put("profilePicture",Collections.singletonList("NewUser.png"));
+        attributes.put("firstName", Collections.singletonList(firstName));
+        attributes.put("lastName",Collections.singletonList(lastName));
+        attributes.put("dateOfBirth",Collections.singletonList(dateOfBirth));
+        attributes.put("description",Collections.singletonList(description));
+        attributes.put("profilePicture",Collections.singletonList(profilePicture));
         return attributes;
     }
 
-    //Can be expanded upon for email for example
-    private void checkUserAttributesValidity(UserSignUpRequest signUpRequest){
-        String dateOfBirthString = signUpRequest.dateOfBirth();
-        if(signUpRequest.dateOfBirth() == null || !dateOfBirthString.matches("\\d{4}-[01]\\d-[0-3]\\d")){
-            throw new AuthUserCreationException("Attribute dateOfBirth is not using the correct yyyy-MM-dd format: " + dateOfBirthString);
+    private void checkUserBirthDateValidity(String dateOfBirth){
+        if(dateOfBirth == null || !dateOfBirth.matches("\\d{4}-[01]\\d-[0-3]\\d")){
+            throw new AuthUserCreationException("Attribute dateOfBirth is not using the correct yyyy-MM-dd format: " + dateOfBirth);
         }
 
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
         df.setLenient(false);
         try {
-            df.parse(dateOfBirthString);
+            df.parse(dateOfBirth);
         } catch (ParseException ex) {
-            throw new AuthUserCreationException("Attribute dateOfBirth is using an impossible date e.g. 2025-13-12");
+            throw new AuthUserCreationException("Attribute dateOfBirth is using an impossible date (month > 12 or day > 31): " + dateOfBirth);
         }
+    }
 
-        String email = signUpRequest.email();
+    private void checkUserEmailValidity(String email){
         if(email == null || !email.matches("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")){
             throw new AuthUserCreationException("Attribute email is not using the correct format: " + email);
         }
@@ -90,9 +85,16 @@ public class AuthService {
 
     public String signUp(UserSignUpRequest signUpRequest) throws AuthUserCreationException {
         try {
-            checkUserAttributesValidity(signUpRequest);
+            checkUserBirthDateValidity(signUpRequest.dateOfBirth());
+            checkUserEmailValidity(signUpRequest.email());
             UserRepresentation user = getUserRepresentation(signUpRequest);
-            user.setAttributes(createUserAttributesMap(signUpRequest));
+            user.setAttributes(createUserAttributesMap(
+                    signUpRequest.firstName(),
+                    signUpRequest.lastName(),
+                    signUpRequest.dateOfBirth(),
+                    signUpRequest.description(),
+                    "NewUser.png"
+                    ));
 
             try (Response response = keycloak.realm(keycloakProperties.realm).users().create(user)) {
                 if (response.getStatus() == 201) {
@@ -106,25 +108,12 @@ public class AuthService {
         }
     }
 
-    public String logout(String authHeader,String refreshToken) throws InvalidAuthorizationHeaderException {
+    public String logout(String authHeader) throws InvalidAuthorizationHeaderException {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String logoutUrl = String.format("%s/realms/%s/protocol/openid-connect/logout", keycloakProperties.getAuthServerUrl(), keycloakProperties.getRealm());
+            String subId = getSubIdFromAuthHeader(authHeader);
             try {
-                String clientResponse = webClient.build().post()
-                        .uri(logoutUrl, UriBuilder::build)
-                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                        .header("Authorization", authHeader)
-                        .body(BodyInserters
-                                .fromFormData("client_id", keycloakProperties.getClientId())
-                                .with("client_secret", keycloakProperties.getClientSecret())
-                                .with("refresh_token", refreshToken)
-                        )
-                        .retrieve()
-                        .onStatus(HttpStatus.BAD_REQUEST::equals, response -> response.bodyToMono(String.class).map(Exception::new))
-                        .onStatus(HttpStatus.NOT_FOUND::equals, response -> response.bodyToMono(String.class).map(Exception::new))
-                        .bodyToMono(String.class)
-                        .block();
-                return clientResponse != null ? clientResponse : "User logged out";
+                keycloak.realm(keycloakProperties.realm).users().get(subId).logout();
+                return "User logged out";
             } catch (Exception e) {
                 throw new RuntimeException("Error during logout: " + e.getMessage());
             }
@@ -133,33 +122,55 @@ public class AuthService {
     }
 
     public UserResponse getUserInformation(String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
-        String[] chunks = token.split("\\.");
-        Base64.Decoder decoder = Base64.getUrlDecoder();
-        String payload = new String(decoder.decode(chunks[1]));
-        JsonNode jsonNode = null;
-
-        try {
-            jsonNode = new ObjectMapper().readTree(payload);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Error processing JSON: " + e.getMessage());
-        }
-        String subId = jsonNode.get("sub").asText();
+        String subId = getSubIdFromAuthHeader(authHeader);
         UserRepresentation response = keycloak.realm(keycloakProperties.realm).users().get(subId).toRepresentation();
-
-        Date date = new Date();
-        date.setTime(response.getCreatedTimestamp());
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
         return new UserResponse(
                 response.getId(),
+                response.getUsername(),
                 response.getFirstName(),
                 response.getLastName(),
                 response.getEmail(),
-                sdf.format(date),
                 response.getAttributes().get("dateOfBirth").getFirst(),
                 response.getAttributes().get("description").getFirst(),
                 response.getAttributes().get("profilePicture").getFirst()
         );
+    }
+
+    public UserResponse updateUserInformation(String authHeader, UserUpdateRequest updatedRequest) throws UserDoesntExistsException,ClientErrorException {
+        checkUserEmailValidity(updatedRequest.email());
+        checkUserBirthDateValidity(updatedRequest.dateOfBirth());
+
+        String subId = getSubIdFromAuthHeader(authHeader);
+        UserResource userResource = keycloak.realm(keycloakProperties.realm).users().get(subId);
+        if(userResource == null){
+            throw new UserDoesntExistsException(String.format("User id %s not found in db",subId));
+        }
+
+        UserRepresentation userRep = userResource.toRepresentation();
+        userRep.setFirstName(updatedRequest.firstName());
+        userRep.setLastName(updatedRequest.lastName());
+        userRep.setEmail(updatedRequest.email());
+        userRep.setAttributes(createUserAttributesMap(updatedRequest.firstName(),updatedRequest.lastName(),
+                updatedRequest.dateOfBirth(),updatedRequest.description(),updatedRequest.profilePicture()));
+
+        keycloak.realm(keycloakProperties.realm).users().get(subId).update(userRep);
+
+        return new UserResponse(
+                userRep.getId(),
+                userRep.getUsername(),
+                userRep.getFirstName(),
+                userRep.getLastName(),
+                userRep.getEmail(),
+                userRep.getAttributes().get("dateOfBirth").getFirst(),
+                userRep.getAttributes().get("description").getFirst(),
+                userRep.getAttributes().get("profilePicture").getFirst()
+        );
+    }
+
+    public String deleteUser(String authHeader){
+        String subId = getSubIdFromAuthHeader(authHeader);
+        keycloak.realm(keycloakProperties.realm).users().get(subId).remove();
+        return "User deleted successfully";
     }
 }

@@ -17,9 +17,8 @@ public class CustomLogoutHandler implements LogoutHandler {
     }
 
     @Override
-    //TODO sending the token in http with a param is not the most secure way to do it.
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        authService.logout(request.getHeader("Authorization"),request.getParameter("refresh_token"));
+        authService.logout(request.getHeader("Authorization"));
     }
 }
 

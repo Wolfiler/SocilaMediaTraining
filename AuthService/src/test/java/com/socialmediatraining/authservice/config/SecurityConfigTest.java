@@ -124,39 +124,6 @@ class SecurityConfigTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void test_visit_user_welcome_as_user_should_be_ok() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders
-                        .get("/api/v1/auth/welcome"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void test_visit_user_welcome_as_admin_should_be_ok() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders
-                        .get("/api/v1/auth/welcome"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void valid_Jwt_should_authenticate_user() throws Exception {
-        // Mock JWT decoder to return a valid token
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .claim("scope", "read")
-                .claim("realm_access", Map.of("roles",
-                        List.of("ROLE_USER")))
-                .build();
-
-        given(jwtDecoder.decode(anyString())).willReturn(jwt);
-
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/auth/welcome")
-                        .header("Authorization", "Bearer token"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
     void should_be_stateless() throws Exception {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")

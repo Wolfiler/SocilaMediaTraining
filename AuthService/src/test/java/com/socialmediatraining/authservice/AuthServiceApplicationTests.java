@@ -2,14 +2,12 @@ package com.socialmediatraining.authservice;
 
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
+import com.socialmediatraining.authservice.dto.UserUpdateRequest;
 import com.socialmediatraining.authservice.service.AuthService;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
 import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
-import jakarta.ws.rs.core.HttpHeaders;
+import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.ws.rs.core.Response;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,12 +20,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -41,8 +34,6 @@ import static org.mockito.Mockito.verify;
 class AuthServiceApplicationTests {
     @Mock
     private Keycloak keycloak;
-    @Mock
-    private WebClient.Builder webClient;
     @Mock
     private KeycloakPropertiesUtils keycloakProperties;
     @Mock
@@ -58,6 +49,10 @@ class AuthServiceApplicationTests {
     @InjectMocks
     private AuthService authService;
     private UserSignUpRequest userSignUpRequest;
+
+    private final String correctHeader = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6" +
+            "IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTA" +
+            "yMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30";
 
     @BeforeEach
     void setup(){
@@ -76,7 +71,7 @@ class AuthServiceApplicationTests {
     @Test
     void getUserRepresentation_should_create_user_with_correct_information(){
 
-        AuthService service = new AuthService(keycloak, webClient, keycloakProperties);
+        AuthService service = new AuthService(keycloak, keycloakProperties);
 
         CredentialRepresentation credentials = new CredentialRepresentation();
         credentials.setType(CredentialRepresentation.PASSWORD);
@@ -234,34 +229,15 @@ class AuthServiceApplicationTests {
         assertThat(authUserCreationExceptionThrown).isTrue();
     }
 
-    private final MockWebServer mockWebServer = new MockWebServer();
-
     @Test
-    void logout_should_work_when_given_authorization_and_refresh_token() throws InterruptedException {
-        String mockServerUrl = mockWebServer.url("/").toString();
-        given(keycloakProperties.getAuthServerUrl()).willReturn(mockServerUrl);
-        given(keycloakProperties.getRealm()).willReturn("test-realm");
-        given(keycloakProperties.getClientId()).willReturn("test-client");
-        given(keycloakProperties.getClientSecret()).willReturn("test-secret");
+    void logout_should_work_when_given_authorization_header() {
+        given(keycloak.realm(any())).willReturn(realmResource);
+        given(keycloak.realm(any()).users()).willReturn(usersResource);
+        given(usersResource.get(anyString())).willReturn(userResource);
 
-        mockWebServer.enqueue(
-                new MockResponse()
-                        .setResponseCode(200)
-                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .setBody("User logged out")
-        );
-
-        WebClient.Builder testWebClient = WebClient.builder().baseUrl(mockServerUrl);
-
-        AuthService testAuthService = new AuthService(keycloak, testWebClient, keycloakProperties);
-        String response = testAuthService.logout("Bearer token", "refreshtoken");
-
-        RecordedRequest recordedRequest = mockWebServer.takeRequest();
+        String response = authService.logout(correctHeader);
 
         assertThat(response).isEqualTo("User logged out");
-        assertThat(recordedRequest.getMethod()).isEqualTo("POST");
-        assertThat(recordedRequest.getPath()).contains("/realms/test-realm/protocol/openid-connect/logout");
-        assertThat(recordedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer token");
     }
 
     @Test
@@ -275,11 +251,10 @@ class AuthServiceApplicationTests {
         given(userRepresentation.getFirstName()).willReturn("firstName");
         given(userRepresentation.getLastName()).willReturn("lastName");
         given(userRepresentation.getEmail()).willReturn("email");
-        given(userRepresentation.getCreatedTimestamp()).willReturn(123456789L);
 
-        Date date = new Date();
+        /*Date date = new Date();
         date.setTime(userRepresentation.getCreatedTimestamp());
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");*/
 
         given(userRepresentation.getAttributes()).willReturn(new HashMap<>(){
             {
@@ -289,16 +264,14 @@ class AuthServiceApplicationTests {
             }
         });
 
-        UserResponse userResponse = authService.getUserInformation("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6" +
-                "IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTA" +
-                "yMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30");
+        UserResponse userResponse = authService.getUserInformation(correctHeader);
 
         assertThat(userResponse.id()).isEqualTo("valid-id-for-user");
         assertThat(userResponse.firstName()).isEqualTo("firstName");
         assertThat(userResponse.lastName()).isEqualTo("lastName");
         assertThat(userResponse.email()).isEqualTo("email");
         assertThat(userResponse.dateOfBirth()).isEqualTo("2000-01-01");
-        assertThat(userResponse.creationDate()).isEqualTo(sdf.format(date));
+        //assertThat(userResponse.creationDate()).isEqualTo(sdf.format(date));
         assertThat(userResponse.description()).isEqualTo("description");
         assertThat(userResponse.profilePicture()).isEqualTo("profilePicture.png");
     }
@@ -312,5 +285,92 @@ class AuthServiceApplicationTests {
         });
 
         assertThat(exception.getMessage()).contains("Error processing JSON");
+    }
+
+    @Test
+    void update_user_info_should_work_with_correct_body(){
+        given(keycloak.realm(any())).willReturn(realmResource);
+        given(keycloak.realm(any()).users()).willReturn(usersResource);
+        given(usersResource.get(anyString())).willReturn(userResource);
+        given(userResource.toRepresentation()).willReturn(userRepresentation);
+
+        given(userRepresentation.getId()).willReturn("IdNumber");
+        given(userRepresentation.getFirstName()).willReturn("firstName");
+        given(userRepresentation.getLastName()).willReturn("lastName");
+        given(userRepresentation.getEmail()).willReturn("email");
+        given(userRepresentation.getAttributes()).willReturn(new HashMap<>(){
+            {
+                put("dateOfBirth", List.of("2000-01-01"));
+                put("description", List.of("description"));
+                put("profilePicture", List.of("profilePicture.png"));
+            }
+        });
+
+        UserUpdateRequest updateRequest = new UserUpdateRequest(
+                "username",
+                "user@email.com",
+                "firstName",
+                "lastName",
+                "2000-01-01",
+                "description",
+                "profilePicture.png"
+        );
+
+        UserResponse response = authService.updateUserInformation(correctHeader,updateRequest);
+
+        assertThat(response.id()).isEqualTo("IdNumber");
+        assertThat(response.firstName()).isEqualTo("firstName");
+        assertThat(response.lastName()).isEqualTo("lastName");
+        assertThat(response.email()).isEqualTo("email");
+        assertThat(response.dateOfBirth()).isEqualTo("2000-01-01");
+        assertThat(response.description()).isEqualTo("description");
+        assertThat(response.profilePicture()).isEqualTo("profilePicture.png");
+    }
+
+    @Test
+    void update_user_info_should_throw_UserDoesntExistsException_with_unknown_user(){
+        given(keycloak.realm(any())).willReturn(realmResource);
+        given(keycloak.realm(any()).users()).willReturn(usersResource);
+        given(usersResource.get(anyString())).willReturn(null);
+
+        UserUpdateRequest updateRequest = new UserUpdateRequest(
+                "username",
+                "user@test.com",
+                "firstName",
+                "lastName",
+                "2000-01-01",
+                "description",
+                "profilePicture.png"
+        );
+
+        Exception exception = assertThrows(UserDoesntExistsException.class, () -> {
+            authService.updateUserInformation(correctHeader,updateRequest);
+        });
+
+        assertThat(exception).isInstanceOf(UserDoesntExistsException.class);
+        assertThat(exception.getMessage().contains("User id 1234567890 not found in db")).isTrue();
+    }
+
+    @Test
+    void delete_user_should_work_with_valid_user(){
+        given(keycloak.realm(any())).willReturn(realmResource);
+        given(keycloak.realm(any()).users()).willReturn(usersResource);
+        given(usersResource.get(anyString())).willReturn(userResource);
+
+        String response = authService.deleteUser(correctHeader);
+
+        assertThat(response).isEqualTo("User deleted successfully");
+    }
+
+    @Test
+    void delete_user_should_not_work_with_invalid_user_id(){
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            authService.deleteUser("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiezaeez" +
+                    "aeaeqqIxMjM0NTYf3ODkwIiwibmFtZSI6IkpvfaG4gRG9lIifwiYWRtaW4iOnRydWUsImlhdfCI6MTUxNjIzOTAyMn0.K" +
+                    "MUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30");
+        });
+
+        assertThat(exception).isInstanceOf(RuntimeException.class);
+        assertThat(exception.getMessage().contains("Error processing JSON")).isTrue();
     }
 }

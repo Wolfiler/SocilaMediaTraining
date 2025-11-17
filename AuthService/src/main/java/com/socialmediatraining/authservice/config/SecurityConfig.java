@@ -1,9 +1,9 @@
 package com.socialmediatraining.authservice.config;
 
+import com.socialmediatraining.authenticationcommons.RoleUtils;
 import com.socialmediatraining.authservice.handler.CustomLogoutHandler;
 import com.socialmediatraining.authservice.tool.JwtAuthConverter;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
-import com.socialmediatraining.authservice.tool.RoleUtils;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -16,8 +16,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
-
-import java.util.List;
 
 @Configuration
 @EnableMethodSecurity

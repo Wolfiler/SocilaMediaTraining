@@ -12,20 +12,16 @@ import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFuncti
 
 @Configuration
 @Slf4j
-public class AuthServiceRoute {
+public class ContentServiceRoute {
 
     @Bean
-    public RouterFunction<ServerResponse> AuthRoutes() {
-        return GatewayRouterFunctions.route("authentication-service")
-                //AUTH
-                .GET("/api/v1/auth/**", http())
-                .POST("/api/v1/auth/**", http())
-                //USER
-                .GET("/api/v1/user/**", http())
-                .POST("/api/v1/user/**", http())
-                .PUT("/api/v1/user/**", http())
-                .DELETE("/api/v1/user/", http())
-                .filter(lb("authentication-service"))
+    public RouterFunction<ServerResponse> contentServiceRoutes() {
+        return GatewayRouterFunctions.route("content-service")
+                .GET("/api/v1/posts/**", http())
+                .POST("/api/v1/posts/**", http())
+                .DELETE("/api/v1/posts/**", http())
+                .PUT("/api/v1/posts/**", http())
+                .filter(lb("content-service"))
                 .build().filter((request, next) -> {
                     log.info("Request: {}", request.uri());
                     return next.handle(request);

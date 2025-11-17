@@ -27,6 +27,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(authorizedPaths).permitAll()
                         .requestMatchers("/api/v1/auth/**").authenticated()
+                        .requestMatchers("/api/v1/post/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
