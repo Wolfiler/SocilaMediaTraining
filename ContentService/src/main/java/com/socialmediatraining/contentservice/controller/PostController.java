@@ -44,12 +44,12 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.status(HttpStatus.OK).body(postService.getAllPostsFromUser(username,pageable));
+        return ResponseEntity.status(HttpStatus.OK).body(postService.getAllVisiblePostsFromUser(username,pageable));
     }
 
     @GetMapping("/{postId}")
     public ResponseEntity<PostResponse> getPostById(@PathVariable("postId") UUID postId) {
-        return ResponseEntity.status(HttpStatus.OK).body(postService.getPostById(postId));
+        return ResponseEntity.status(HttpStatus.OK).body(postService.getVisiblePostById(postId));
     }
 
     @PutMapping("/{postId}")

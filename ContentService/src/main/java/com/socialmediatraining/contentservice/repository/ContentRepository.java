@@ -12,6 +12,7 @@ import java.util.UUID;
 public interface ContentRepository extends JpaRepository<Content, UUID> {
 
     Optional<Page<Content>> findAllByCreatorIdAndDeletedAtIsNull(UUID creatorId, Pageable pageable);
+    Optional<Page<Content>> findAllByCreatorId(UUID creatorId, Pageable pageable);
 
     Optional<Content> findByIdAndDeletedAtIsNull(UUID id);
 

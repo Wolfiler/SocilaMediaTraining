@@ -132,8 +132,18 @@ public class PostService {
         return String.format("Post %s deleted successfully",postId);
     }
 
-    public PostResponse getPostById(UUID postId) {
-        Content content = contentRepository.findByIdAndDeletedAtIsNull(postId)
+    public PostResponse getVisiblePostById(UUID postId) {
+        return getPostById(postId,false);
+    }
+
+    public PostResponse getPostByIdWithDeleted(UUID postId) {
+        return getPostById(postId,true);
+    }
+
+    private PostResponse getPostById(UUID postId, boolean getDeletedPost) {
+        Content content = (getDeletedPost ?
+                contentRepository.findById(postId)
+                : contentRepository.findByIdAndDeletedAtIsNull(postId))
                 .orElse(null);
         if(content == null){
             throw new PostNotFoundException("Cannot find post with id "+ postId);
@@ -205,7 +215,15 @@ public class PostService {
         return String.format("User %s unliked post with id %s",subId,postId);
     }
 
+    public List<PostResponse> getAllVisiblePostsFromUser(String username, Pageable pageable){
+        return getAllPostsFromUser(username,pageable,false);
+    }
+
     public List<PostResponse> getAllPostsFromUser(String username, Pageable pageable){
+        return getAllPostsFromUser(username,pageable,true);
+    }
+
+    private List<PostResponse> getAllPostsFromUser(String username, Pageable pageable, boolean getDeletedPosts){
         ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
             throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
@@ -213,7 +231,9 @@ public class PostService {
             //User might not exist in content database but can still be an existing user in the auth user database
         }
 
-        Page<Content> contentList = contentRepository.findAllByCreatorIdAndDeletedAtIsNull(externalUser.getId(),pageable)
+        Page<Content> contentList = (getDeletedPosts ?
+                    contentRepository.findAllByCreatorId(externalUser.getId(),pageable) :
+                    contentRepository.findAllByCreatorIdAndDeletedAtIsNull(externalUser.getId(),pageable))
                 .orElse(new PageImpl<>(new ArrayList<>()));
 
         return contentList.getContent().stream().map( content -> new PostResponse(
