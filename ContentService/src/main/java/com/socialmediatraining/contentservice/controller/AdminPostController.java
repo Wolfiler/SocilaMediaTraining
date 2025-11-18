@@ -1,6 +1,7 @@
 package com.socialmediatraining.contentservice.controller;
 
 import com.socialmediatraining.contentservice.dto.post.PostResponse;
+import com.socialmediatraining.contentservice.dto.post.PostResponseAdmin;
 import com.socialmediatraining.contentservice.service.PostService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -25,7 +26,7 @@ public class AdminPostController {
     }
 
     @GetMapping("/profile/{username}")
-    public ResponseEntity<List<PostResponse>> getAllPostsFromUsername(
+    public ResponseEntity<List<PostResponseAdmin>> getAllPostsFromUsername(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {

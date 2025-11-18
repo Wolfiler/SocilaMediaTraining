@@ -20,7 +20,6 @@ import java.util.UUID;
 @PreAuthorize("@roleUtils.hasAnyUserRole(authentication)")
 public class PostController {
     //TODO add caching
-    //TODO add admin methods to see deleted messages
 
     private final PostService postService;
 

@@ -7,9 +7,5 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ExternalUserRepository extends JpaRepository<ExternalUser, UUID> {
-
-    Optional<ExternalUser> findExternalUserByUserId(String userId);
-    boolean existsExternalUserByUserId(String userId);
-
     Optional<ExternalUser> findExternalUserByUsername(String username);
 }

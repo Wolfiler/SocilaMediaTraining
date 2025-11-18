@@ -2,6 +2,7 @@ package com.socialmediatraining.contentservice.service;
 
 import com.socialmediatraining.contentservice.dto.post.PostRequest;
 import com.socialmediatraining.contentservice.dto.post.PostResponse;
+import com.socialmediatraining.contentservice.dto.post.PostResponseAdmin;
 import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.entity.UserContentLike;
@@ -13,6 +14,8 @@ import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenExc
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -42,11 +45,10 @@ public class PostService {
         this.userContentLikeRepository = userContentLikeRepository;
     }
 
-    private ExternalUser getOrCreatNewExternalUserIfNotExists(String authHeader){
-        String subId = getSubIdFromAuthHeader(authHeader);
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUserId(subId).orElse(null);
+    @CachePut(value = "users", key = "#username", unless = "#result == null")
+    public ExternalUser getOrCreatNewExternalUserIfNotExists(String subId, String username){
+        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
-            String username = getPreferredUsernameFromAuthHeader(authHeader);
             ExternalUser newUser = ExternalUser.builder()
                     .userId(subId)
                     .username(username)
@@ -56,8 +58,20 @@ public class PostService {
         return externalUser;
     }
 
+    @CachePut(value = "users", key = "#username", unless = "#result == null")
+    public ExternalUser getExternalUserByUsername(String username){
+        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
+        if(externalUser == null){
+            throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
+        }
+        return externalUser;
+    }
+
+    @CachePut(value = "posts", key = "#result.id", unless = "#result == null")
     public PostResponse createNewPost(String authHeader, PostRequest post){
-        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(authHeader);
+        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
+                getSubIdFromAuthHeader(authHeader),
+                getPreferredUsernameFromAuthHeader(authHeader));
 
         Content newPost = Content.builder()
                 .creatorId(externalUser.getId())
@@ -81,9 +95,10 @@ public class PostService {
         );
     }
 
-    public PostResponse updatePost(UUID postId,String authHeader,PostRequest postRequest){ // TODO make async with Kafka
-        String subId = getSubIdFromAuthHeader(authHeader);
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUserId(subId).orElse(null);
+    @CachePut(value = "posts", key = "#postId", unless = "#result == null")
+    public PostResponse updatePost(UUID postId,String authHeader,PostRequest postRequest){
+        String username = getPreferredUsernameFromAuthHeader(authHeader);
+        ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("Error while fetching user from database when updating post.");
         }
@@ -114,8 +129,11 @@ public class PostService {
         );
     }
 
-    public String softDeletePost(UUID postId,String authHeader){ // TODO make async with Kafka
-        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(authHeader);
+    @CacheEvict(value = "posts", key = "#postId")
+    public String softDeletePost(UUID postId,String authHeader){
+        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
+                getSubIdFromAuthHeader(authHeader),
+                getPreferredUsernameFromAuthHeader(authHeader));
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId)
                 .orElse(null);
         if(content == null || content.getDeletedAt() != null){
@@ -160,9 +178,12 @@ public class PostService {
         );
     }
 
-    public String likePost(String authHeader, UUID postId){ // TODO make async with Kafka
+    @CacheEvict(value = "posts", key = "#postId")
+    public String likePost(String authHeader, UUID postId){
         String subId = getSubIdFromAuthHeader(authHeader);
-        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(authHeader);
+        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
+                getSubIdFromAuthHeader(authHeader),
+                getPreferredUsernameFromAuthHeader(authHeader));
 
         Content post = contentRepository.findByIdAndDeletedAtIsNull(postId)
                 .orElse(null);
@@ -187,10 +208,10 @@ public class PostService {
         return String.format("User %s liked post with id %s",subId,postId);
     }
 
-    public String deleteLike(String authHeader, UUID postId){ // TODO make async with Kafka
-        String subId = getSubIdFromAuthHeader(authHeader);
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUserId(subId)
-                .orElse(null);
+    @CacheEvict(value = "posts", key = "#postId")
+    public String deleteLike(String authHeader, UUID postId){
+        String username = getPreferredUsernameFromAuthHeader(authHeader);
+        ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("Error while fetching user from database when deleting like");
         }
@@ -212,19 +233,20 @@ public class PostService {
         externalUser.removeContentLike(userContentLike);
         post.removeLike(userContentLike);
 
-        return String.format("User %s unliked post with id %s",subId,postId);
+        return String.format("User %s unliked post with id %s",username,postId);
     }
 
     public List<PostResponse> getAllVisiblePostsFromUser(String username, Pageable pageable){
-        return getAllPostsFromUser(username,pageable,false);
+        List<PostResponseAdmin> posts = getAllPostsFromUser(username,pageable,false);
+        return posts.stream().map(PostResponseAdmin::postResponse).collect(Collectors.toList());
     }
 
-    public List<PostResponse> getAllPostsFromUser(String username, Pageable pageable){
+    public List<PostResponseAdmin> getAllPostsFromUser(String username, Pageable pageable){
         return getAllPostsFromUser(username,pageable,true);
     }
 
-    private List<PostResponse> getAllPostsFromUser(String username, Pageable pageable, boolean getDeletedPosts){
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
+    private List<PostResponseAdmin> getAllPostsFromUser(String username, Pageable pageable, boolean getDeletedPosts){
+        ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
             // -> maybe return null instead of error
@@ -236,20 +258,24 @@ public class PostService {
                     contentRepository.findAllByCreatorIdAndDeletedAtIsNull(externalUser.getId(),pageable))
                 .orElse(new PageImpl<>(new ArrayList<>()));
 
-        return contentList.getContent().stream().map( content -> new PostResponse(
-                content.getId(),
-                content.getCreatorId(),
-                content.getParentId(),
-                content.getCreatedAt(),
-                content.getUpdatedAt(),
-                content.getText(),
-                content.getMediaUrls()
+        return contentList.getContent().stream().map( content -> new PostResponseAdmin(
+                new PostResponse(
+                        content.getId(),
+                        content.getCreatorId(),
+                        content.getParentId(),
+                        content.getCreatedAt(),
+                        content.getUpdatedAt(),
+                        content.getText(),
+                        content.getMediaUrls()
+
+                ),
+                content.getDeletedAt()
             )
         ).collect(Collectors.toList());
     }
 
     public List<PostResponse> getAllLikedPostsByUser(String username, Pageable pageable) {
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
+        ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
             // -> maybe return null instead of error
