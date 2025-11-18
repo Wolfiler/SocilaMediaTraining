@@ -13,7 +13,10 @@ public interface ContentRepository extends JpaRepository<Content, UUID> {
 
     Optional<Page<Content>> findAllByCreatorIdAndDeletedAtIsNull(UUID creatorId, Pageable pageable);
     Optional<Page<Content>> findAllByCreatorId(UUID creatorId, Pageable pageable);
-
+    Optional<Page<Content>> findAllByCreatorIdAndParentIdIsNullAndDeletedAtIsNull(UUID creatorId, Pageable pageable);
+    Optional<Page<Content>> findAllByCreatorIdAndParentIdIsNotNullAndDeletedAtIsNull(UUID creatorId, Pageable pageable);
+    Optional<Page<Content>> findAllByCreatorIdAndParentIdIsNull(UUID creatorId, Pageable pageable);
+    Optional<Page<Content>> findAllByCreatorIdAndParentIdIsNotNull(UUID creatorId, Pageable pageable);
     Optional<Content> findByIdAndDeletedAtIsNull(UUID id);
-
+    boolean existsByIdAndDeletedAtIsNull(UUID id);
 }

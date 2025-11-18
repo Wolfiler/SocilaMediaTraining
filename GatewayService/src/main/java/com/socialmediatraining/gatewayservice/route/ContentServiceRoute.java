@@ -17,10 +17,17 @@ public class ContentServiceRoute {
     @Bean
     public RouterFunction<ServerResponse> contentServiceRoutes() {
         return GatewayRouterFunctions.route("content-service")
+                .GET("/api/v1/profile/*/posts/**", http())
+
                 .GET("/api/v1/posts/**", http())
                 .POST("/api/v1/posts/**", http())
                 .DELETE("/api/v1/posts/**", http())
                 .PUT("/api/v1/posts/**", http())
+
+                .GET("/api/v1/like/**", http())
+                .POST("/api/v1/like/**", http())
+                .DELETE("/api/v1/like/**", http())
+
                 .filter(lb("content-service"))
                 .build().filter((request, next) -> {
                     log.info("Request: {}", request.uri());

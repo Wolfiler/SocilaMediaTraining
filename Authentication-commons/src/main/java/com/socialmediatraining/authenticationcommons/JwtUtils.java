@@ -11,7 +11,7 @@ public class JwtUtils {
         return GetDecodedPayload(authHeader).get("sub").asText();
     }
 
-    public static String getPreferredUsernameFromAuthHeader(String authHeader){
+    public static String getUsernameFromAuthHeader(String authHeader){
         return GetDecodedPayload(authHeader).get("preferred_username").asText();
     }
 

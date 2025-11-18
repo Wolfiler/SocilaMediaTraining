@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
-public record PostResponse(
+public record ContentResponse(
         UUID id,
         UUID creator_id,
         UUID parentId,
