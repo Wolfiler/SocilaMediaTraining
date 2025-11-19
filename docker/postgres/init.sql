@@ -1,7 +1,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 CREATE TABLE external_user(
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar(255) NOT NULL UNIQUE,
     username varchar(255) NOT NULL UNIQUE
 );
@@ -24,8 +24,8 @@ CREATE TABLE user_content_like(
     user_id UUID NOT NULL,
     content_id UUID NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (user_id) REFERENCES external_user(id),
-    FOREIGN KEY (content_id) REFERENCES content(id),
+    FOREIGN KEY (user_id) REFERENCES external_user(id) ON DELETE CASCADE,
+    FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE CASCADE,
     CONSTRAINT uc_user_content_like UNIQUE (user_id, content_id)
 );
 
@@ -34,8 +34,8 @@ CREATE TABLE user_content_favorite(
   user_id UUID NOT NULL,
   content_id UUID NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
-  FOREIGN KEY (user_id) REFERENCES external_user(id),
-  FOREIGN KEY (content_id) REFERENCES content(id),
+  FOREIGN KEY (user_id) REFERENCES external_user(id) ON DELETE CASCADE,
+  FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE CASCADE,
   CONSTRAINT uc_user_content_favorite UNIQUE (user_id, content_id)
 );
 

@@ -6,6 +6,7 @@ import com.socialmediatraining.contentservice.service.post.ContentService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -60,7 +61,7 @@ public class ContentController {
     }
 
     @GetMapping("/profile/{username}/posts")
-    public ResponseEntity<List<ContentResponse>> getAllPostsFromUsername(
+    public ResponseEntity<Page<ContentResponse>> getAllPostsFromUsername(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "all")
             @Pattern(regexp = "^(?i)(all|post|comment)$",

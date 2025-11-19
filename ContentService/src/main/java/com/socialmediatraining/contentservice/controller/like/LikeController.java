@@ -3,6 +3,7 @@ package com.socialmediatraining.contentservice.controller.like;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.service.like.LikeService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,7 @@ public class LikeController {
     }
 
     @GetMapping("/profile/{username}")
-    public ResponseEntity<List<ContentResponse>> getAllLikedPosts(
+    public ResponseEntity<Page<ContentResponse>> getAllLikedPosts(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {

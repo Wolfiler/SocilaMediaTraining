@@ -206,13 +206,15 @@ public class ContentService {
         );
     }
 
-    public List<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
+    public Page<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
         List<ContentResponseAdmin> posts = getAllContentFromUser(username,pageable,false,postType);
-        return posts.stream().map(ContentResponseAdmin::postResponse).collect(Collectors.toList());
+        List<ContentResponse> contentResponses = posts.stream().map(ContentResponseAdmin::postResponse).collect(Collectors.toList());
+        return new PageImpl<>(contentResponses,pageable,contentResponses.size());
     }
 
-    public List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable){
-        return getAllContentFromUser(username,pageable,true,"all");
+    public Page<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable){
+        List<ContentResponseAdmin> content = getAllContentFromUser(username,pageable,true,"all");
+        return new PageImpl<>(content,pageable,content.size());
     }
 
     private List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, boolean getDeletedContents,String postType){

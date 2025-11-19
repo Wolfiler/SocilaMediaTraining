@@ -5,6 +5,7 @@ import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
 import com.socialmediatraining.contentservice.service.post.ContentService;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -27,7 +28,7 @@ public class AdminPostController {
     }
 
     @GetMapping("/profile/{username}")
-    public ResponseEntity<List<ContentResponseAdmin>> getAllPostsFromUsername(
+    public ResponseEntity<Page<ContentResponseAdmin>> getAllPostsFromUsername(
             @PathVariable("username") String username,
             @Pattern(regexp = "^(?i)(all|post|comment)$",
                     message = "Invalid content type. Must be one of: all, post, comment")

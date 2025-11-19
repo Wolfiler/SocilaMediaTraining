@@ -10,10 +10,12 @@ import com.socialmediatraining.contentservice.repository.UserContentLikeReposito
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
+import org.apache.catalina.User;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -117,7 +119,7 @@ public class LikeService {
         return String.format("User %s unliked post with id %s",username,contentId);
     }
 
-    public List<ContentResponse> getAllLikedContentsByUser(String username, Pageable pageable) {
+    public Page<ContentResponse> getAllLikedContentsByUser(String username, Pageable pageable) {
         ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
@@ -129,10 +131,10 @@ public class LikeService {
                 .orElse(null);
 
         if(userContentLikeList == null || userContentLikeList.getContent().isEmpty()){
-            return new ArrayList<>();
+            return new PageImpl<>(new ArrayList<>(),pageable,0);
         }
 
-        return userContentLikeList.getContent().stream().map(userContentLike -> new ContentResponse(
+        List<ContentResponse> userContentLikes = userContentLikeList.getContent().stream().map(userContentLike -> new ContentResponse(
                 userContentLike.getContent().getId(),
                 userContentLike.getContent().getCreatorId(),
                 userContentLike.getContent().getParentId(),
@@ -140,6 +142,8 @@ public class LikeService {
                 userContentLike.getContent().getUpdatedAt(),
                 userContentLike.getContent().getText(),
                 userContentLike.getContent().getMediaUrls()
-        )).collect(Collectors.toList());
+        )).toList();
+
+        return new PageImpl<>(userContentLikes,pageable,userContentLikes.size());
     }
 }
