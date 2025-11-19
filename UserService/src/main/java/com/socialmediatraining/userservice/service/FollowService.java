@@ -2,6 +2,7 @@ package com.socialmediatraining.userservice.service;
 
 import com.socialmediatraining.authenticationcommons.JwtUtils;
 import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
+import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import com.socialmediatraining.userservice.dto.ExternalUserResponse;
 import com.socialmediatraining.userservice.entity.ExternalUser;
@@ -53,7 +54,7 @@ public class FollowService {
     public String followUser(String username, String token) {
         String userUsername = JwtUtils.getUsernameFromAuthHeader(token);
         if(userUsername.equals(username)){
-            throw new IllegalArgumentException("You cannot follow yourself");//TODO custom error
+            throw new UserActionForbiddenException("You cannot follow yourself");
         }
 
         ExternalUser userToFollow = externalUserRepository.findExternalUserByUsername(username).orElse(null);
@@ -68,7 +69,7 @@ public class FollowService {
 
         boolean alreadyFollowing = user.getFollowing().stream().anyMatch(f -> f.getFollowedUserId().equals(userToFollow));
         if (alreadyFollowing) {
-            throw new RuntimeException(user.getUsername() +  " is already following " + username);//TODO custoù error
+            throw new UserActionForbiddenException(user.getUsername() +  " is already following " + username);
         }
 
         ExternalUserFollow userFollow = user.follow(userToFollow);
@@ -80,7 +81,7 @@ public class FollowService {
     public String unfollowUser(String username, String token) {
         String userUsername = JwtUtils.getUsernameFromAuthHeader(token);
         if(userUsername.equals(username)){
-            throw new IllegalArgumentException("You cannot follow yourself");//TODO custom error
+            throw new UserActionForbiddenException("You cannot follow yourself");
         }
 
         ExternalUser userToFollow = externalUserRepository.findExternalUserByUsername(username).orElse(null);
