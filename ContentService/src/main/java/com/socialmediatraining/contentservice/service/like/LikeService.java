@@ -59,7 +59,7 @@ public class LikeService {
         return externalUser;
     }
 
-    @CacheEvict(value = "posts", key = "#postId")
+    @CacheEvict(value = "posts", key = "#contentId")
     public String likeContent(String authHeader, UUID contentId){
         String subId = getSubIdFromAuthHeader(authHeader);
         ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
@@ -89,7 +89,7 @@ public class LikeService {
         return String.format("User %s liked post with id %s",subId,contentId);
     }
 
-    @CacheEvict(value = "posts", key = "#postId")
+    @CacheEvict(value = "posts", key = "#contentId")
     public String deleteLike(String authHeader, UUID contentId){
         String username = getUsernameFromAuthHeader(authHeader);
         ExternalUser externalUser = getExternalUserByUsername(username);

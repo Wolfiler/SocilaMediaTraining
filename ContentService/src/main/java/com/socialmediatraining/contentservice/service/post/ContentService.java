@@ -1,5 +1,6 @@
 package com.socialmediatraining.contentservice.service.post;
 
+import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
 import com.socialmediatraining.contentservice.dto.post.ContentRequest;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
@@ -12,12 +13,14 @@ import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,6 +34,7 @@ import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFro
 
 @Service
 @Transactional
+@Slf4j
 public class ContentService {
 
     protected final ContentRepository contentRepository;
@@ -42,6 +46,23 @@ public class ContentService {
         this.contentRepository = contentRepository;
         this.externalUserRepository = externalUserRepository;
         this.userContentLikeRepository = userContentLikeRepository;
+    }
+
+    @KafkaListener(topics = "created-new-user", groupId = "content-service" )
+    @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
+    public void createNewUser(SimpleUserDataObject simpleUserData) {
+        ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
+        if(newUser != null){//This should never be the case, might want to remove this check.
+            log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
+            return;
+        }
+
+        newUser = ExternalUser.builder()
+                .userId(simpleUserData.id())
+                .username(simpleUserData.username())
+                .build();
+        externalUserRepository.save(newUser);
+        log.info("Kafka topic caught -> New user created: {}", simpleUserData);
     }
 
     @CachePut(value = "users", key = "#username", unless = "#result == null")

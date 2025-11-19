@@ -1,5 +1,6 @@
 package com.socialmediatraining.authservice.service;
 
+import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.dto.UserUpdateRequest;
@@ -10,11 +11,13 @@ import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsExcept
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.core.Response;
 import lombok.extern.slf4j.Slf4j;
+import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.text.ParseException;
@@ -28,16 +31,18 @@ import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFro
 public class AuthService {
     private final Keycloak keycloak;
     private final KeycloakPropertiesUtils keycloakProperties;
+    private final KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
 
     @Autowired
-    public AuthService(Keycloak keycloak, KeycloakPropertiesUtils keycloakProperties) {
+    public AuthService(Keycloak keycloak, KeycloakPropertiesUtils keycloakProperties, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate) {
         this.keycloak = keycloak;
         this.keycloakProperties = keycloakProperties;
+        this.userDataKafkaTemplate = userDataKafkaTemplate;
     }
 
     public UserRepresentation getUserRepresentation(UserSignUpRequest signUpRequest) {
         UserRepresentation user = new UserRepresentation();
-        user.setUsername(signUpRequest.username());
+        user.setUsername(signUpRequest.username() + ".socialmedia");
         user.setEmail(signUpRequest.email());
         user.setEnabled(true);
         user.setEmailVerified(false);
@@ -98,6 +103,16 @@ public class AuthService {
 
             try (Response response = keycloak.realm(keycloakProperties.realm).users().create(user)) {
                 if (response.getStatus() == 201) {
+                    //TODO Kafka topic on new user in db
+
+                    String userId = CreatedResponseUtil.getCreatedId(response);
+                    SimpleUserDataObject userData = new SimpleUserDataObject(userId, user.getUsername());
+
+                    if(userData.username() == null){//Might not be useful check, maybe remove later
+                        log.error("ERROR: impossible to get user id from db - other db will not be updated!");
+                    }else{
+                        userDataKafkaTemplate.send("created-new-user", userData);
+                    }
                     return "User successfully created";
                 } else {
                     throw new AuthUserCreationException("Failed to create user: " + response.readEntity(String.class));
@@ -155,6 +170,8 @@ public class AuthService {
                 updatedRequest.dateOfBirth(),updatedRequest.description(),updatedRequest.profilePicture()));
 
         keycloak.realm(keycloakProperties.realm).users().get(subId).update(userRep);
+
+        //TODO Kafka topic on username update
 
         return new UserResponse(
                 userRep.getId(),
