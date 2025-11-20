@@ -1,6 +1,7 @@
 package com.socialmediatraining.contentservice.service.post;
 
 import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
+import com.socialmediatraining.contentservice.dto.ExternalUserResponseProxy;
 import com.socialmediatraining.contentservice.dto.post.ContentRequest;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
@@ -13,6 +14,7 @@ import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.core.HttpHeaders;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -22,11 +24,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.socialmediatraining.authenticationcommons.JwtUtils.getUsernameFromAuthHeader;
@@ -37,15 +40,18 @@ import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFro
 @Slf4j
 public class ContentService {
 
-    protected final ContentRepository contentRepository;
-    protected final ExternalUserRepository externalUserRepository;
-    protected final UserContentLikeRepository userContentLikeRepository;
+    private final ContentRepository contentRepository;
+    private final ExternalUserRepository externalUserRepository;
+    private final UserContentLikeRepository userContentLikeRepository;
+
+    private final WebClient.Builder webClientBuilder;
 
     @Autowired
-    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, UserContentLikeRepository userContentLikeRepository) {
+    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, UserContentLikeRepository userContentLikeRepository, WebClient.Builder webClientBuilder) {
         this.contentRepository = contentRepository;
         this.externalUserRepository = externalUserRepository;
         this.userContentLikeRepository = userContentLikeRepository;
+        this.webClientBuilder = webClientBuilder;
     }
 
     @KafkaListener(topics = "created-new-user", groupId = "content-service" )
@@ -255,5 +261,44 @@ public class ContentService {
                         content.getDeletedAt()
                 )
         ).collect(Collectors.toList());
+    }
+
+    private Flux<ExternalUserResponseProxy> getListOfFollowedUser(String authHeader){
+        String username = getUsernameFromAuthHeader(authHeader);
+
+        return webClientBuilder.baseUrl("http://user-service").build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/follow/follows/{username}")
+                        .build(username))
+                .header(HttpHeaders.AUTHORIZATION, authHeader)
+                .retrieve()
+                .bodyToFlux(ExternalUserResponseProxy.class)
+                .doOnNext(user -> log.info("Received user: {}", user));
+    }
+
+    //TODO Add last activity timestamp on users to limit amount of data to check
+    // Add this timestamp to UserService and kafka to sync
+    public Flux<Page<ContentResponse>> getUserFeed(String authHeader, Pageable pageable){
+        return getListOfFollowedUser(authHeader)
+                 .collectList()
+                 .publishOn(Schedulers.boundedElastic())
+                 .flatMapMany( users -> {
+
+                     List<String> ids = users.stream().map(ExternalUserResponseProxy::userId).toList();
+                     Page<Content> contentPage = contentRepository.findAllByCreatorIdInAndDeletedAtIsNull(ids, pageable)
+                             .orElse(new PageImpl<>(Collections.emptyList(), pageable, 0));
+
+                     return Flux.just(contentPage.map(content ->
+                             new ContentResponse(
+                                     content.getId(),
+                                     content.getCreatorId(),
+                                     content.getParentId(),
+                                     content.getCreatedAt(),
+                                     content.getUpdatedAt(),
+                                     content.getText(),
+                                     content.getMediaUrls()
+                             )));
+                 });
     }
 }

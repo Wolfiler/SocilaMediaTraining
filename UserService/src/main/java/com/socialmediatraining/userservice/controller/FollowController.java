@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/follow")
 @PreAuthorize("@roleUtils.hasAnyUserRole(authentication)")
@@ -48,12 +50,9 @@ public class FollowController {
     }
 
     @GetMapping("/follows/{username}")
-    public ResponseEntity<Page<ExternalUserResponse>> getAllFollowOfUser(
-            @PathVariable String username,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+    public ResponseEntity<List<ExternalUserResponse>> getAllFollowOfUser(
+            @PathVariable String username
     ) {
-        Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.status(HttpStatus.OK).body(followService.getAllFollowOfUser(username,pageable));
+        return ResponseEntity.status(HttpStatus.OK).body(followService.getAllFollowOfUser(username));
     }
 }

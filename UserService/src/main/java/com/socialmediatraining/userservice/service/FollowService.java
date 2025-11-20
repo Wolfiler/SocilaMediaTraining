@@ -116,21 +116,19 @@ public class FollowService {
         return new PageImpl<>(followersList,pageable,followersList.size());
     }
 
-    public Page<ExternalUserResponse> getAllFollowOfUser(String username, Pageable pageable) {
+    public List<ExternalUserResponse> getAllFollowOfUser(String username) {
         ExternalUser user = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(user == null){
             throw new UserDoesntExistsException("User " + username + " doesn't exists");
         }
 
-        List<ExternalUserResponse> followsList = user.getFollowing().stream().map(
+        return user.getFollowing().stream().map(
                 externalUserFollow ->
                         new ExternalUserResponse(
                                 externalUserFollow.getFollowedUserId().getUserId().toString(),
                                 externalUserFollow.getFollowedUserId().getUsername()
                         )
         ).toList();
-        return new PageImpl<>(followsList,pageable,followsList.size());
-
     }
 
     //Add kafka event consume of new user
