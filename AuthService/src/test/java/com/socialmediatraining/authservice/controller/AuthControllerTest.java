@@ -43,16 +43,15 @@ class AuthControllerTest {
     @Test
     void signUp_with_valid_user_returns_created() throws Exception {
         UserSignUpRequest request = new UserSignUpRequest(
-                "testUser",
+                "testuser",
                 "test@test.com",
                 "test1234",
                 List.of("USER"),
                 "fistName",
                 "lastName",
-                "description",
-                "2000-01-01"
-
-        );
+                "2000-01-01",
+                "description"
+                );
         String jsonRequest = new ObjectMapper().writeValueAsString(request);
 
         given(authService.signUp(any(UserSignUpRequest.class))).willReturn("User created successfully");

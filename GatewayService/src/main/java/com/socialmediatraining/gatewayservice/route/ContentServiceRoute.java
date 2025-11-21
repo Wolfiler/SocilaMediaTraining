@@ -28,6 +28,8 @@ public class ContentServiceRoute {
                 .POST("/api/v1/like/**", http())
                 .DELETE("/api/v1/like/**", http())
 
+                .GET("/api/v1/feed/**", http())
+
                 .filter(lb("content-service"))
                 .build().filter((request, next) -> {
                     log.info("Request: {}", request.uri());

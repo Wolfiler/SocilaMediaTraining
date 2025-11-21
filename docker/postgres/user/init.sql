@@ -2,7 +2,8 @@
 CREATE TABLE external_user(
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL UNIQUE,
-      username varchar(255) NOT NULL UNIQUE
+      username varchar(255) NOT NULL UNIQUE,
+      last_activity_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE user_follow(

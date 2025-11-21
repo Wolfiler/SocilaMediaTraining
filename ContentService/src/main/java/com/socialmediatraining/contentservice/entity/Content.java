@@ -64,12 +64,7 @@ public class Content {
         favorites.remove(favorite);
     }
 
-    //TODO: redo the function to create like in content too (like in user service)
     public void addLike(UserContentLike like){
         likes.add(like);
-    }
-
-    public void removeLike(UserContentLike like){
-        likes.remove(like);
     }
 }

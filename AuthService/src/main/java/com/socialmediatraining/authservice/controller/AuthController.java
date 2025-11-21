@@ -10,15 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import com.socialmediatraining.authenticationcommons.RoleUtils;
 
 import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1")
 @Validated
-public class AuthController {//Might be worth it to split the controller into User controller and general controller
-
+public class AuthController {
     private final AuthService authService;
 
     @Autowired
@@ -26,7 +24,6 @@ public class AuthController {//Might be worth it to split the controller into Us
         this.authService = authService;
     }
 
-    //TODO Move both public endpoints to own controller
     @PostMapping("/auth/signup")
     public ResponseEntity<String> signUp(@Valid @RequestBody UserSignUpRequest request) {
         return ResponseEntity.created(URI.create("/api/v1/auth/signup")).body(authService.signUp(request));

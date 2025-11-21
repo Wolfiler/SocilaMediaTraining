@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +28,9 @@ public class ExternalUser {
 
     @Column(unique = true, nullable = false)
     private String username;
+
+    @Column(name = "last_activity_at")
+    private LocalDateTime lastActivityAt;
 
     @OneToMany(mappedBy = "followingUserId", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ExternalUserFollow> following = new HashSet<>();

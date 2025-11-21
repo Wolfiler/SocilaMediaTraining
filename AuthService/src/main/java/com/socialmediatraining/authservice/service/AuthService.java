@@ -103,8 +103,6 @@ public class AuthService {
 
             try (Response response = keycloak.realm(keycloakProperties.realm).users().create(user)) {
                 if (response.getStatus() == 201) {
-                    //TODO Kafka topic on new user in db
-
                     String userId = CreatedResponseUtil.getCreatedId(response);
                     SimpleUserDataObject userData = new SimpleUserDataObject(userId, user.getUsername());
 
@@ -170,8 +168,6 @@ public class AuthService {
                 updatedRequest.dateOfBirth(),updatedRequest.description(),updatedRequest.profilePicture()));
 
         keycloak.realm(keycloakProperties.realm).users().get(subId).update(userRep);
-
-        //TODO Kafka topic on username update
 
         return new UserResponse(
                 userRep.getId(),

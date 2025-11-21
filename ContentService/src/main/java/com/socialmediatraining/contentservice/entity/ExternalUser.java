@@ -22,7 +22,7 @@ public class ExternalUser {
     private UUID id;
 
     @Column(name = "user_id")
-    private String userId;
+    private UUID userId;
 
     @Column(name = "username")
     private String username;
@@ -33,19 +33,27 @@ public class ExternalUser {
     @OneToMany(mappedBy = "user",fetch = FetchType.LAZY,cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UserContentFavorite> contentFavorites = new HashSet<>();;
 
+    //Same as like, and kinda same behavior, might implement it one day, but no priority
     public void addContentFavorite(UserContentFavorite contentFavorite){
-        contentFavorites.add(contentFavorite);
+
     }
 
     public void removeContentFavorite(UserContentFavorite contentFavorite){
-        contentFavorites.remove(contentFavorite);
+
     }
 
-    public void addContentLike(UserContentLike contentLike){
-        contentLiked.add(contentLike);
+    public UserContentLike addContentLike(Content content){
+        UserContentLike userContentLike = UserContentLike.builder()
+                .content(content)
+                .user(this)
+                .build();
+        contentLiked.add(userContentLike);
+        content.addLike(userContentLike);
+        return userContentLike;
     }
 
-    public void removeContentLike(UserContentLike contentLike){
-        contentLiked.remove(contentLike);
+    public void removeContentLike(Content content){
+        contentLiked.removeIf(contentLiked -> contentLiked.getContent().equals(content));
+        content.getLikes().removeIf(contentLiked -> contentLiked.getUser().equals(this));
     }
 }

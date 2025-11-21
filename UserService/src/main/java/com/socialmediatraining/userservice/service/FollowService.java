@@ -15,11 +15,13 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -34,9 +36,23 @@ public class FollowService {
         this.userFollowRepository = userFollowRepository;
     }
 
-    @KafkaListener(topics = "created-new-user", groupId = "user-service" )
+    @KafkaListener(topics = "created-new-content", groupId = "user-service" )
     @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
     public void createNewUser(SimpleUserDataObject simpleUserData) {
+        ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
+        if(newUser == null){
+            log.error("User not in database. This should not happen, there might be an issue in user creation flow");
+            return;
+        }
+
+        newUser.setLastActivityAt(LocalDateTime.now());
+        externalUserRepository.save(newUser);
+        log.info("Kafka topic caught -> User {} activity updated", simpleUserData);
+    }
+
+    @KafkaListener(topics = "created-new-user", groupId = "user-service" )
+    @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
+    public void updateUserLastActivity(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
         if(newUser != null){//This should never be the case, might want to remove this check.
             log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
@@ -116,17 +132,34 @@ public class FollowService {
         return new PageImpl<>(followersList,pageable,followersList.size());
     }
 
-    public List<ExternalUserResponse> getAllFollowOfUser(String username) {
+    public List<ExternalUserResponse> getAllFollowOfUser(String callerServiceName,String username, int limit, String orderBy) {
+        if(!callerServiceName.equals("content-service")){
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Forbidden caller for endpoint getAllFollowOfUser");
+        }
+
         ExternalUser user = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(user == null){
             throw new UserDoesntExistsException("User " + username + " doesn't exists");
         }
 
-        return user.getFollowing().stream().map(
-                externalUserFollow ->
+        List<ExternalUser> followedUsers = new ArrayList<>(user.getFollowing().stream().map(ExternalUserFollow::getFollowedUserId).toList());
+
+        switch (orderBy){
+            case "activity":
+                followedUsers.sort(Comparator.comparing(ExternalUser::getLastActivityAt));
+                break;
+            case "none":
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid order by value: " + orderBy);
+        }
+        followedUsers.subList(0, Math.min(limit, followedUsers.size()));
+
+        return followedUsers.stream().map(
+                followedUser ->
                         new ExternalUserResponse(
-                                externalUserFollow.getFollowedUserId().getUserId().toString(),
-                                externalUserFollow.getFollowedUserId().getUsername()
+                                followedUser.getUserId().toString(),
+                                followedUser.getUsername()
                         )
         ).toList();
     }

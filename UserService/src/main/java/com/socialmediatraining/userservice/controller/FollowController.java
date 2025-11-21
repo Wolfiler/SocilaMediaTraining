@@ -2,6 +2,11 @@ package com.socialmediatraining.userservice.controller;
 
 import com.socialmediatraining.userservice.dto.ExternalUserResponse;
 import com.socialmediatraining.userservice.service.FollowService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.ws.rs.DefaultValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/follow")
 @PreAuthorize("@roleUtils.hasAnyUserRole(authentication)")
+@Validated
 public class FollowController {
 
     private final FollowService followService;
@@ -51,8 +58,17 @@ public class FollowController {
 
     @GetMapping("/follows/{username}")
     public ResponseEntity<List<ExternalUserResponse>> getAllFollowOfUser(
-            @PathVariable String username
-    ) {
-        return ResponseEntity.status(HttpStatus.OK).body(followService.getAllFollowOfUser(username));
+            @RequestHeader("Service") String callerServiceName,
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0")
+            @Min(value=1,message = "Limit should be at least 1")
+            @Max(value=100,message = "Limit should be at most 100")
+            int limit,
+            @RequestParam(defaultValue = "none")
+            @Pattern(regexp = "^(?i)(none|activity)$", message = "Invalid content type. Must be one of: none, activity")
+             String orderBy
+            ) {
+        return ResponseEntity.status(HttpStatus.OK).body(followService
+                .getAllFollowOfUser(callerServiceName,username,limit, orderBy));
     }
 }

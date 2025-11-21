@@ -44,7 +44,7 @@ public class LikeService {
         ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
             ExternalUser newUser = ExternalUser.builder()
-                    .userId(subId)
+                    .userId(UUID.fromString(subId))
                     .username(username)
                     .build();
             externalUser = externalUserRepository.save(newUser);
@@ -78,15 +78,8 @@ public class LikeService {
             throw new UserActionForbiddenException("User " + externalUser.getUsername() + " already liked post with id " + contentId);
         }
 
-        UserContentLike userContentLike = UserContentLike.builder()
-                .user(externalUser)
-                .content(post)
-                .build();
-
+        UserContentLike userContentLike = externalUser.addContentLike(post);
         userContentLikeRepository.save(userContentLike);
-
-        externalUser.addContentLike(userContentLike);
-        post.addLike(userContentLike);
 
         return String.format("User %s liked post with id %s",subId,contentId);
     }
@@ -111,10 +104,9 @@ public class LikeService {
             throw new UserActionForbiddenException("Post with id " + contentId + " isn't liked by user " + externalUser.getUsername());
         }
 
-        userContentLikeRepository.delete(userContentLike);
-
-        externalUser.removeContentLike(userContentLike);
-        post.removeLike(userContentLike);
+        externalUser.removeContentLike(post);
+        //userContentLikeRepository.delete(userContentLike);
+        externalUserRepository.save(externalUser);
 
         return String.format("User %s unliked post with id %s",username,contentId);
     }

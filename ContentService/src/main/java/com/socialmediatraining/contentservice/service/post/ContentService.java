@@ -9,7 +9,6 @@ import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.repository.ExternalUserRepository;
-import com.socialmediatraining.contentservice.repository.UserContentLikeRepository;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
@@ -22,10 +21,15 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
@@ -42,15 +46,14 @@ public class ContentService {
 
     private final ContentRepository contentRepository;
     private final ExternalUserRepository externalUserRepository;
-    private final UserContentLikeRepository userContentLikeRepository;
-
+    private final KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
     private final WebClient.Builder webClientBuilder;
 
     @Autowired
-    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, UserContentLikeRepository userContentLikeRepository, WebClient.Builder webClientBuilder) {
+    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate, WebClient.Builder webClientBuilder) {
         this.contentRepository = contentRepository;
         this.externalUserRepository = externalUserRepository;
-        this.userContentLikeRepository = userContentLikeRepository;
+        this.userDataKafkaTemplate = userDataKafkaTemplate;
         this.webClientBuilder = webClientBuilder;
     }
 
@@ -64,7 +67,7 @@ public class ContentService {
         }
 
         newUser = ExternalUser.builder()
-                .userId(simpleUserData.id())
+                .userId(UUID.fromString(simpleUserData.id()))
                 .username(simpleUserData.username())
                 .build();
         externalUserRepository.save(newUser);
@@ -76,7 +79,7 @@ public class ContentService {
         ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
             ExternalUser newUser = ExternalUser.builder()
-                    .userId(subId)
+                    .userId(UUID.fromString(subId))
                     .username(username)
                     .build();
             externalUser = externalUserRepository.save(newUser);
@@ -116,7 +119,8 @@ public class ContentService {
                 .build();
 
         Content contentReturn = contentRepository.save(newPost);
-
+        userDataKafkaTemplate.send("created-new-content",
+                new SimpleUserDataObject(externalUser.getUserId().toString(), externalUser.getUsername()));
         return new ContentResponse(
                 contentReturn.getId(),
                 contentReturn.getCreatorId(),
@@ -227,8 +231,6 @@ public class ContentService {
         ExternalUser externalUser = getExternalUserByUsername(username);
         if(externalUser == null){
             throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
-            // -> maybe return null instead of error
-            //User might not exist in content database but can still be an existing user in the auth user database
         }
 
         Page<Content> contentList = switch (postType) {
@@ -244,7 +246,7 @@ public class ContentService {
                     contentRepository.findAllByCreatorIdAndParentIdIsNotNull(externalUser.getId(), pageable) :
                     contentRepository.findAllByCreatorIdAndParentIdIsNotNullAndDeletedAtIsNull(externalUser.getId(), pageable))
                     .orElse(new PageImpl<>(new ArrayList<>()));
-            default -> throw new RuntimeException("Invalid post type");//TODO custom exception
+            default -> throw new RuntimeException("Invalid post type");
         };
 
         return contentList.getContent().stream().map( content -> new ContentResponseAdmin(
@@ -270,35 +272,75 @@ public class ContentService {
                 .get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/v1/follow/follows/{username}")
+                        .queryParam("limit", 0)
+                        .queryParam("orderBy", "activity")
                         .build(username))
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
+                .header("Service","content-service")
                 .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError,
+                        response -> response.bodyToMono(String.class)
+                                .flatMap(errorBody -> {
+                                    log.error("Client error from user-service: {}", errorBody);
+                                    return Mono.error(
+                                            new ResponseStatusException(
+                                                    response.statusCode(),
+                                                    errorBody
+                                    ));
+                                })
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new ResponseStatusException(
+                                HttpStatus.SERVICE_UNAVAILABLE,
+                                "User service is currently unavailable"
+                        ))
+                )
                 .bodyToFlux(ExternalUserResponseProxy.class)
                 .doOnNext(user -> log.info("Received user: {}", user));
     }
 
-    //TODO Add last activity timestamp on users to limit amount of data to check
-    // Add this timestamp to UserService and kafka to sync
+    private Mono<Page<ContentResponse>> getContentPage(List<String> userIds, Pageable pageable) {
+        return Mono.fromCallable(() ->
+                        contentRepository.findAllByCreatorIdInAndDeletedAtIsNull(userIds, pageable)
+                                .orElse(Page.empty(pageable)))
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("Error while fetching content for user feed", e);
+                    return Mono.error(new ResponseStatusException(
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "Error processing your feed"
+                    ));
+                })
+                .map(contentPage -> contentPage.map(content ->
+                        new ContentResponse(
+                                content.getId(),
+                                content.getCreatorId(),
+                                content.getParentId(),
+                                content.getCreatedAt(),
+                                content.getUpdatedAt(),
+                                content.getText(),
+                                content.getMediaUrls()
+                        )
+                ));
+    }
+
     public Flux<Page<ContentResponse>> getUserFeed(String authHeader, Pageable pageable){
         return getListOfFollowedUser(authHeader)
                  .collectList()
-                 .publishOn(Schedulers.boundedElastic())
                  .flatMapMany( users -> {
-
-                     List<String> ids = users.stream().map(ExternalUserResponseProxy::userId).toList();
-                     Page<Content> contentPage = contentRepository.findAllByCreatorIdInAndDeletedAtIsNull(ids, pageable)
-                             .orElse(new PageImpl<>(Collections.emptyList(), pageable, 0));
-
-                     return Flux.just(contentPage.map(content ->
-                             new ContentResponse(
-                                     content.getId(),
-                                     content.getCreatorId(),
-                                     content.getParentId(),
-                                     content.getCreatedAt(),
-                                     content.getUpdatedAt(),
-                                     content.getText(),
-                                     content.getMediaUrls()
-                             )));
-                 });
+                     if (users.isEmpty()) {
+                         log.info("No followed users found, returning empty feed");
+                         return Flux.just(Page.<ContentResponse>empty(pageable));
+                     }
+                     List<String> ids = users.stream()
+                             .map(ExternalUserResponseProxy::userId)
+                             .collect(Collectors.toList()
+                     );
+                     return getContentPage(ids, pageable);
+                 })
+                .onErrorResume(ResponseStatusException.class, e -> {
+                    log.error("Error while fetching user feed", e);
+                    return Mono.error(e);
+                });
     }
 }

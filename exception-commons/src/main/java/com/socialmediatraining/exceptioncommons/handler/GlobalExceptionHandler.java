@@ -1,12 +1,16 @@
 package com.socialmediatraining.exceptioncommons.handler;
 
 import com.socialmediatraining.exceptioncommons.exception.*;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -47,6 +51,29 @@ public class GlobalExceptionHandler {//TODO could use aspect to log error messag
     ResponseEntity<Map<String,String>> handleUserActionUnauthorizedExceptionException(RuntimeException e){
         log.error(e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GetErrorBody(e.getMessage(),HttpStatus.FORBIDDEN));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    ResponseEntity<Map<String,String>> handleConstraintViolationException(RuntimeException e){
+        log.error(e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException e) {
+        log.error("ResponseStatusException: {}", e.getMessage());
+        return ResponseEntity.status(e.getStatusCode())
+                .body(GetErrorBody(e.getMessage(), HttpStatus.valueOf(e.getStatusCode().value())));
+    }
+
+    @ExceptionHandler(HttpStatusCodeException.class)
+    ResponseEntity<Map<String, String>> handleHttpStatusCodeException(HttpStatusCodeException e) {
+        log.error("HTTP Status Code Exception: {}", e.getMessage());
+        return ResponseEntity.status(e.getStatusCode())
+                .body(GetErrorBody(
+                        e.getMessage(),
+                        HttpStatus.valueOf(e.getStatusCode().value())
+                ));
     }
 
     private Map<String,String> GetErrorBody(String message, HttpStatus status){

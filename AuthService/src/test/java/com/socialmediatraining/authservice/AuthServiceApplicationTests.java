@@ -1,5 +1,6 @@
 package com.socialmediatraining.authservice;
 
+import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.dto.UserUpdateRequest;
@@ -20,6 +21,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +36,8 @@ import static org.mockito.Mockito.verify;
 class AuthServiceApplicationTests {
     @Mock
     private Keycloak keycloak;
+    @Mock
+    private KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
     @Mock
     private KeycloakPropertiesUtils keycloakProperties;
     @Mock
@@ -71,14 +75,14 @@ class AuthServiceApplicationTests {
     @Test
     void getUserRepresentation_should_create_user_with_correct_information(){
 
-        AuthService service = new AuthService(keycloak, keycloakProperties);
+        AuthService service = new AuthService(keycloak, keycloakProperties,userDataKafkaTemplate);
 
         CredentialRepresentation credentials = new CredentialRepresentation();
         credentials.setType(CredentialRepresentation.PASSWORD);
         credentials.setValue(userSignUpRequest.password());
 
         UserRepresentation userRepresentation = service.getUserRepresentation(userSignUpRequest);
-        assertThat(userRepresentation.getUsername()).isEqualTo(userSignUpRequest.username());
+        assertThat(userRepresentation.getUsername()).isEqualTo(userSignUpRequest.username() + ".socialmedia");
         assertThat(userRepresentation.getEmail()).isEqualTo(userSignUpRequest.email());
         assertThat(userRepresentation.getGroups().containsAll(userSignUpRequest.roles())).isTrue();
         assertThat(userSignUpRequest.roles().containsAll(userRepresentation.getGroups())).isTrue();
@@ -91,6 +95,7 @@ class AuthServiceApplicationTests {
         given(realmResource.users()).willReturn(usersResource);
         given(usersResource.create(any(UserRepresentation.class))).willReturn(response);
         given(response.getStatus()).willReturn(201);
+        given(response.getStatusInfo()).willReturn(Response.Status.CREATED);
 
         String result = authService.signUp(userSignUpRequest);
 
@@ -252,10 +257,6 @@ class AuthServiceApplicationTests {
         given(userRepresentation.getLastName()).willReturn("lastName");
         given(userRepresentation.getEmail()).willReturn("email");
 
-        /*Date date = new Date();
-        date.setTime(userRepresentation.getCreatedTimestamp());
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");*/
-
         given(userRepresentation.getAttributes()).willReturn(new HashMap<>(){
             {
                 put("dateOfBirth", List.of("2000-01-01"));
@@ -307,7 +308,6 @@ class AuthServiceApplicationTests {
         });
 
         UserUpdateRequest updateRequest = new UserUpdateRequest(
-                "username",
                 "user@email.com",
                 "firstName",
                 "lastName",
@@ -334,7 +334,6 @@ class AuthServiceApplicationTests {
         given(usersResource.get(anyString())).willReturn(null);
 
         UserUpdateRequest updateRequest = new UserUpdateRequest(
-                "username",
                 "user@test.com",
                 "firstName",
                 "lastName",
