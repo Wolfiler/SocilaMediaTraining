@@ -1,5 +1,19 @@
 services:
 
+  notification-service:
+    image: 'mongo'
+    container_name: notification_service_db
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: sm_notification_service_db
+    volumes:
+      - ./notification-service-mongo-data:/data/db
+      - ./docker/mongodb/notification/initdb.d:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
   postgres:
     image: 'postgres:latest'
     container_name: postgres_db
