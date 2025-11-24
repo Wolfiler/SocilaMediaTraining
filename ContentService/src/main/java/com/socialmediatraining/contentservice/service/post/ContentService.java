@@ -9,6 +9,7 @@ import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.repository.ExternalUserRepository;
+import com.socialmediatraining.dtoutils.dto.UserCommentNotification;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
@@ -47,13 +48,15 @@ public class ContentService {
     private final ContentRepository contentRepository;
     private final ExternalUserRepository externalUserRepository;
     private final KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
+    private final KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate;
     private final WebClient.Builder webClientBuilder;
 
     @Autowired
-    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate, WebClient.Builder webClientBuilder) {
+    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate, KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate, WebClient.Builder webClientBuilder) {
         this.contentRepository = contentRepository;
         this.externalUserRepository = externalUserRepository;
         this.userDataKafkaTemplate = userDataKafkaTemplate;
+        this.userCommentKafkaTemplate = userCommentKafkaTemplate;
         this.webClientBuilder = webClientBuilder;
     }
 
@@ -102,6 +105,7 @@ public class ContentService {
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
 
+
         if(post.parentId() != null){
             boolean parentExists = contentRepository.existsByIdAndDeletedAtIsNull(post.parentId());
             if(!parentExists){
@@ -121,6 +125,19 @@ public class ContentService {
         Content contentReturn = contentRepository.save(newPost);
         userDataKafkaTemplate.send("created-new-content",
                 new SimpleUserDataObject(externalUser.getUserId().toString(), externalUser.getUsername()));
+
+        if(contentReturn.getParentId() != null){
+            Content parentPost = contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).orElse(null);
+            userCommentKafkaTemplate.send("new-comment",
+                    UserCommentNotification.create(
+                            parentPost.getCreatorId().toString(),
+                            externalUser.getId().toString(),
+                            externalUser.getUsername(),
+                            newPost.getId().toString(),
+                            parentPost.getText().substring(0, Math.min(parentPost.getText().length(), 20))
+                    ));
+        }
+
         return new ContentResponse(
                 contentReturn.getId(),
                 contentReturn.getCreatorId(),

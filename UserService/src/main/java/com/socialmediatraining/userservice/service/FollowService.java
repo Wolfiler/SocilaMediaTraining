@@ -2,6 +2,7 @@ package com.socialmediatraining.userservice.service;
 
 import com.socialmediatraining.authenticationcommons.JwtUtils;
 import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
+import com.socialmediatraining.dtoutils.dto.UserFollowNotification;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import com.socialmediatraining.userservice.dto.ExternalUserResponse;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,10 +32,13 @@ public class FollowService {
     private final ExternalUserRepository externalUserRepository;
     private final ExternalUserFollowRepository userFollowRepository;
 
+    private final KafkaTemplate<String, UserFollowNotification> kafkaTemplate;
+
     @Autowired
-    public FollowService(ExternalUserRepository followRepository, ExternalUserFollowRepository userFollowRepository) {
+    public FollowService(ExternalUserRepository followRepository, ExternalUserFollowRepository userFollowRepository, KafkaTemplate<String, UserFollowNotification> kafkaTemplate) {
         this.externalUserRepository = followRepository;
         this.userFollowRepository = userFollowRepository;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @KafkaListener(topics = "created-new-content", groupId = "user-service" )
@@ -90,6 +95,10 @@ public class FollowService {
 
         ExternalUserFollow userFollow = user.follow(userToFollow);
         userFollowRepository.save(userFollow);
+
+        kafkaTemplate.send("new-follower", UserFollowNotification.create(
+                userToFollow.getUserId().toString(),userToFollow.getUsername(),
+                user.getUserId().toString(),user.getUsername()));
 
         return String.format("User %s followed user %s successfully", userUsername, username);
     }

@@ -3,10 +3,9 @@ package com.socialmediatraining.notificationservice.dto;
 import com.socialmediatraining.notificationservice.entity.Notification;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 public record NotificationDto(
-        UUID id,
+        String id,
         String userId,
         String title,
         String content,
@@ -20,7 +19,7 @@ public record NotificationDto(
                                          String content, Notification.NotificationType type
     ){
         return new NotificationDto(
-                UUID.randomUUID(),
+                null,
                 userId,
                 title,
                 content,
@@ -29,5 +28,17 @@ public record NotificationDto(
                 null,
                 Notification.NotificationStatus.UNREAD
         );
+    }
+
+    public static Notification toNotification(NotificationDto dto){
+        return Notification.builder()
+                .userId(dto.userId)
+                .title(dto.title)
+                .content(dto.content)
+                .type(dto.type)
+                .createdAt(dto.createdAt)
+                .readAt(dto.readAt)
+                .read(dto.read)
+                .build();
     }
 }

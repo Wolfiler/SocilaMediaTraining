@@ -27,7 +27,7 @@ public class Content {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID id;
 
-    @Column(name = "creator_id")
+    @Column(name = "creator_id", nullable = false)
     private UUID creatorId;
 
     @Column(name = "parent_id")

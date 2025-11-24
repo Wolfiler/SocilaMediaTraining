@@ -1,29 +1,27 @@
 package com.socialmediatraining.notificationservice.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-@Entity
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@SuperBuilder
+@Inheritance(strategy = InheritanceType.JOINED)
 @Document(collection = "notifications")
 public class Notification {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @UuidGenerator
-    UUID id;
+    String id;
     String userId;
     String title;
     String content;
@@ -38,6 +36,7 @@ public class Notification {
     }
 
     public enum NotificationType{
-        WELCOME, NEW_FOLLOW, LIKE, COMMENT
+        WELCOME, NEW_FOLLOW, LIKE, NEW_COMMENT
     }
+
 }
