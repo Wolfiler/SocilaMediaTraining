@@ -62,7 +62,7 @@ class SecurityConfigTest {
     void test_visit_signIn_as_unauthorized_should_be_ok() throws Exception {
         given(keycloakProperties.getAuthServerUrl()).willReturn("http://localhost:8100");
         given(keycloakProperties.getRealm()).willReturn("social-media-training");
-        given(keycloakProperties.getClientId()).willReturn("social-media-user-id");
+        given(keycloakProperties.getClientId()).willReturn("social-media-user-userId");
         given(keycloakProperties.getClientSecret()).willReturn("***secret***");
 
         mockMvc.perform(MockMvcRequestBuilders

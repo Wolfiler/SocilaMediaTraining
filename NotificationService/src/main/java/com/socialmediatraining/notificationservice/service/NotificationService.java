@@ -1,7 +1,7 @@
 package com.socialmediatraining.notificationservice.service;
 
 import com.socialmediatraining.authenticationcommons.JwtUtils;
-import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.dtoutils.dto.UserCommentNotification;
 import com.socialmediatraining.dtoutils.dto.UserFollowNotification;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
@@ -13,6 +13,9 @@ import com.socialmediatraining.notificationservice.entity.NewFollowerNotificatio
 import com.socialmediatraining.notificationservice.entity.Notification;
 import com.socialmediatraining.notificationservice.repository.NotificationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -34,7 +37,7 @@ public class NotificationService {
     @KafkaListener(topics = "created-new-user", groupId = "notification-service" )
     public Mono<Void> sendNewUserNotification(SimpleUserDataObject user){
         NotificationDto newUserNotification = NotificationDto.create(
-                user.id(),
+                user.userId(),
                 "Welcome to the platform",
                 String.format("Welcome to the platform %s ! " +
                         "\nWe hope you enjoy your time here, and that your are able to create meaningful connections." +
@@ -111,4 +114,17 @@ public class NotificationService {
                 .onErrorResume(Mono::error);
     }
 
+    public Mono<Page<Notification>> getAllNotifications(String authHeader, Pageable pageable, String status){
+
+        String userId = JwtUtils.getSubIdFromAuthHeader(authHeader);
+
+        String[] notificationStatus = status.equals("all") ?
+                new String[]{"READ", "UNREAD"} :
+                new String[]{status.toUpperCase()};
+
+        return notificationRepository.findAllByUserIdAndReadIn(userId,notificationStatus,pageable)
+                .collectList()
+                .zipWith(notificationRepository.countByUserIdAndReadIn(userId,notificationStatus))
+                .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+    }
 }

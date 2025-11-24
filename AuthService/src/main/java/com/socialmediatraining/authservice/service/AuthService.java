@@ -1,10 +1,10 @@
 package com.socialmediatraining.authservice.service;
 
-import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.dto.UserUpdateRequest;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
 import com.socialmediatraining.exceptioncommons.exception.InvalidAuthorizationHeaderException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
@@ -104,10 +104,10 @@ public class AuthService {
             try (Response response = keycloak.realm(keycloakProperties.realm).users().create(user)) {
                 if (response.getStatus() == 201) {
                     String userId = CreatedResponseUtil.getCreatedId(response);
-                    SimpleUserDataObject userData = new SimpleUserDataObject(userId, user.getUsername());
+                    SimpleUserDataObject userData = SimpleUserDataObject.create(userId, user.getUsername());
 
                     if(userData.username() == null){//Might not be useful check, maybe remove later
-                        log.error("ERROR: impossible to get user id from db - other db will not be updated!");
+                        log.error("ERROR: impossible to get user userId from db - other db will not be updated!");
                     }else{
                         userDataKafkaTemplate.send("created-new-user", userData);
                     }
@@ -138,7 +138,7 @@ public class AuthService {
         String subId = getSubIdFromAuthHeader(authHeader);
         UserRepresentation response = keycloak.realm(keycloakProperties.realm).users().get(subId).toRepresentation();
 
-        return new UserResponse(
+        return UserResponse.create(
                 response.getId(),
                 response.getUsername(),
                 response.getFirstName(),
@@ -157,7 +157,7 @@ public class AuthService {
         String subId = getSubIdFromAuthHeader(authHeader);
         UserResource userResource = keycloak.realm(keycloakProperties.realm).users().get(subId);
         if(userResource == null){
-            throw new UserDoesntExistsException(String.format("User id %s not found in db",subId));
+            throw new UserDoesntExistsException(String.format("User userId %s not found in db",subId));
         }
 
         UserRepresentation userRep = userResource.toRepresentation();
@@ -169,7 +169,7 @@ public class AuthService {
 
         keycloak.realm(keycloakProperties.realm).users().get(subId).update(userRep);
 
-        return new UserResponse(
+        return UserResponse.create(
                 userRep.getId(),
                 userRep.getUsername(),
                 userRep.getFirstName(),

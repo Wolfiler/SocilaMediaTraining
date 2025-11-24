@@ -2,9 +2,6 @@ package com.socialmediatraining.authservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import org.hibernate.validator.constraints.Length;
 
 public record UserUpdateRequest(
         @Email
@@ -16,4 +13,8 @@ public record UserUpdateRequest(
         String description,
         String profilePicture
 ) {
+        public static UserUpdateRequest create(String email, String firstName, String lastName, String dateOfBirth,
+                                               String description, String profilePicture){
+                return new UserUpdateRequest(email,firstName,lastName,dateOfBirth,description,profilePicture);
+        }
 }

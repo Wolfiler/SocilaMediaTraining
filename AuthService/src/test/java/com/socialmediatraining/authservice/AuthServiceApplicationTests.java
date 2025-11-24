@@ -1,11 +1,11 @@
 package com.socialmediatraining.authservice;
 
-import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
 import com.socialmediatraining.authservice.dto.UserResponse;
 import com.socialmediatraining.authservice.dto.UserSignUpRequest;
 import com.socialmediatraining.authservice.dto.UserUpdateRequest;
 import com.socialmediatraining.authservice.service.AuthService;
 import com.socialmediatraining.authservice.tool.KeycloakPropertiesUtils;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.exceptioncommons.exception.AuthUserCreationException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.ws.rs.core.Response;
@@ -252,7 +252,7 @@ class AuthServiceApplicationTests {
         given(usersResource.get(anyString())).willReturn(userResource);
         given(userResource.toRepresentation()).willReturn(userRepresentation);
 
-        given(userRepresentation.getId()).willReturn("valid-id-for-user");
+        given(userRepresentation.getId()).willReturn("valid-userId-for-user");
         given(userRepresentation.getFirstName()).willReturn("firstName");
         given(userRepresentation.getLastName()).willReturn("lastName");
         given(userRepresentation.getEmail()).willReturn("email");
@@ -267,7 +267,7 @@ class AuthServiceApplicationTests {
 
         UserResponse userResponse = authService.getUserInformation(correctHeader);
 
-        assertThat(userResponse.id()).isEqualTo("valid-id-for-user");
+        assertThat(userResponse.id()).isEqualTo("valid-userId-for-user");
         assertThat(userResponse.firstName()).isEqualTo("firstName");
         assertThat(userResponse.lastName()).isEqualTo("lastName");
         assertThat(userResponse.email()).isEqualTo("email");
@@ -307,7 +307,7 @@ class AuthServiceApplicationTests {
             }
         });
 
-        UserUpdateRequest updateRequest = new UserUpdateRequest(
+        UserUpdateRequest updateRequest = UserUpdateRequest.create(
                 "user@email.com",
                 "firstName",
                 "lastName",
@@ -333,7 +333,7 @@ class AuthServiceApplicationTests {
         given(keycloak.realm(any()).users()).willReturn(usersResource);
         given(usersResource.get(anyString())).willReturn(null);
 
-        UserUpdateRequest updateRequest = new UserUpdateRequest(
+        UserUpdateRequest updateRequest = UserUpdateRequest.create(
                 "user@test.com",
                 "firstName",
                 "lastName",
@@ -347,7 +347,7 @@ class AuthServiceApplicationTests {
         });
 
         assertThat(exception).isInstanceOf(UserDoesntExistsException.class);
-        assertThat(exception.getMessage().contains("User id 1234567890 not found in db")).isTrue();
+        assertThat(exception.getMessage().contains("User userId 1234567890 not found in db")).isTrue();
     }
 
     @Test

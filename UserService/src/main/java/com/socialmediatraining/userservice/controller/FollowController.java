@@ -58,9 +58,8 @@ public class FollowController {
 
     @GetMapping("/follows/{username}")
     public ResponseEntity<List<ExternalUserResponse>> getAllFollowOfUser(
-            @RequestHeader("Service") String callerServiceName,
             @PathVariable String username,
-            @RequestParam(defaultValue = "0")
+            @RequestParam(defaultValue = "50")
             @Min(value=1,message = "Limit should be at least 1")
             @Max(value=100,message = "Limit should be at most 100")
             int limit,
@@ -69,6 +68,6 @@ public class FollowController {
              String orderBy
             ) {
         return ResponseEntity.status(HttpStatus.OK).body(followService
-                .getAllFollowOfUser(callerServiceName,username,limit, orderBy));
+                .getAllFollowOfUser(username,limit, orderBy));
     }
 }

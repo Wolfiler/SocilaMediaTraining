@@ -71,17 +71,17 @@ public class LikeService {
         Content post = contentRepository.findByIdAndDeletedAtIsNull(contentId)
                 .orElse(null);
         if(post == null){
-            throw new PostNotFoundException("Post with id " + contentId + " doesn't exists");
+            throw new PostNotFoundException("Post with userId " + contentId + " doesn't exists");
         }
 
         if (userContentLikeRepository.existsByUserIdAndContentId(externalUser.getId(), contentId)) {
-            throw new UserActionForbiddenException("User " + externalUser.getUsername() + " already liked post with id " + contentId);
+            throw new UserActionForbiddenException("User " + externalUser.getUsername() + " already liked post with userId " + contentId);
         }
 
         UserContentLike userContentLike = externalUser.addContentLike(post);
         userContentLikeRepository.save(userContentLike);
 
-        return String.format("User %s liked post with id %s",subId,contentId);
+        return String.format("User %s liked post with userId %s",subId,contentId);
     }
 
     @CacheEvict(value = "posts", key = "#contentId")
@@ -95,20 +95,20 @@ public class LikeService {
         Content post = contentRepository.findByIdAndDeletedAtIsNull(contentId)
                 .orElse(null);
         if(post == null){
-            throw new PostNotFoundException("Post with id " + contentId + " doesn't exists");
+            throw new PostNotFoundException("Post with userId " + contentId + " doesn't exists");
         }
 
         UserContentLike userContentLike = userContentLikeRepository.findByUserAndContent(externalUser,post)
                 .orElse(null);
         if(userContentLike == null){
-            throw new UserActionForbiddenException("Post with id " + contentId + " isn't liked by user " + externalUser.getUsername());
+            throw new UserActionForbiddenException("Post with userId " + contentId + " isn't liked by user " + externalUser.getUsername());
         }
 
         externalUser.removeContentLike(post);
         //userContentLikeRepository.delete(userContentLike);
         externalUserRepository.save(externalUser);
 
-        return String.format("User %s unliked post with id %s",username,contentId);
+        return String.format("User %s unliked post with userId %s",username,contentId);
     }
 
     public Page<ContentResponse> getAllLikedContentsByUser(String username, Pageable pageable) {
@@ -126,7 +126,7 @@ public class LikeService {
             return new PageImpl<>(new ArrayList<>(),pageable,0);
         }
 
-        List<ContentResponse> userContentLikes = userContentLikeList.getContent().stream().map(userContentLike -> new ContentResponse(
+        List<ContentResponse> userContentLikes = userContentLikeList.getContent().stream().map(userContentLike -> ContentResponse.create(
                 userContentLike.getContent().getId(),
                 userContentLike.getContent().getCreatorId(),
                 userContentLike.getContent().getParentId(),

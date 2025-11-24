@@ -1,7 +1,7 @@
 package com.socialmediatraining.userservice.service;
 
 import com.socialmediatraining.authenticationcommons.JwtUtils;
-import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.dtoutils.dto.UserFollowNotification;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
@@ -65,7 +65,7 @@ public class FollowService {
         }
 
         newUser = ExternalUser.builder()
-                .userId(UUID.fromString(simpleUserData.id()))
+                .userId(UUID.fromString(simpleUserData.userId()))
                 .username(simpleUserData.username())
                 .build();
         externalUserRepository.save(newUser);
@@ -133,7 +133,7 @@ public class FollowService {
 
         List<ExternalUserResponse> followersList =  user.getFollowers().stream().map(
                 externalUserFollow ->
-                        new ExternalUserResponse(
+                        ExternalUserResponse.create(
                                 externalUserFollow.getFollowingUserId().getUserId().toString(),
                                 externalUserFollow.getFollowingUserId().getUsername()
                         )
@@ -141,11 +141,7 @@ public class FollowService {
         return new PageImpl<>(followersList,pageable,followersList.size());
     }
 
-    public List<ExternalUserResponse> getAllFollowOfUser(String callerServiceName,String username, int limit, String orderBy) {
-        if(!callerServiceName.equals("content-service")){
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Forbidden caller for endpoint getAllFollowOfUser");
-        }
-
+    public List<ExternalUserResponse> getAllFollowOfUser(String username, int limit, String orderBy) {
         ExternalUser user = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(user == null){
             throw new UserDoesntExistsException("User " + username + " doesn't exists");
@@ -155,7 +151,10 @@ public class FollowService {
 
         switch (orderBy){
             case "activity":
-                followedUsers.sort(Comparator.comparing(ExternalUser::getLastActivityAt));
+                followedUsers.sort(Comparator.comparing(
+                        userToSort -> userToSort.getLastActivityAt() != null ? userToSort.getLastActivityAt() : LocalDateTime.MIN,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ));
                 break;
             case "none":
                 break;
@@ -166,7 +165,7 @@ public class FollowService {
 
         return followedUsers.stream().map(
                 followedUser ->
-                        new ExternalUserResponse(
+                        ExternalUserResponse.create(
                                 followedUser.getUserId().toString(),
                                 followedUser.getUsername()
                         )

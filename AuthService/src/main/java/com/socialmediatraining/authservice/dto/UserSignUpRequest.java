@@ -31,4 +31,18 @@ public record UserSignUpRequest(
             roles = roles.stream().map(String::toUpperCase).toList();
         }
     }
+
+    public static UserSignUpRequest create(String username,String email,String password,List<String> roles,
+                                           String firstName, String lastName,String dateOfBirth,String description){
+        return new UserSignUpRequest(
+                username,
+                email,
+                password,
+                roles,
+                firstName,
+                lastName,
+                dateOfBirth,
+                description);
+
+    }
 }

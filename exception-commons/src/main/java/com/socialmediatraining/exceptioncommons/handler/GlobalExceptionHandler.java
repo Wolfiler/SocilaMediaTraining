@@ -6,9 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler {//TODO could use aspect to log error message
+public class GlobalExceptionHandler {//Could use aspect to log error message
 
     Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
@@ -26,13 +26,6 @@ public class GlobalExceptionHandler {//TODO could use aspect to log error messag
     ResponseEntity<Map<String,String>> handleInvalidAuthorizationHeaderException(RuntimeException e){
         log.error(e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(GetErrorBody(e.getMessage(),HttpStatus.FORBIDDEN));
-    }
-
-    //I don't really like this error, the status could be wrong most of the time. Might need to change.
-    @ExceptionHandler(AuthUserCreationException.class)
-    ResponseEntity<Map<String,String>> handleAuthUserCreationException(RuntimeException e){
-        log.error(e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
     }
 
     @ExceptionHandler(UserDoesntExistsException.class)
@@ -68,6 +61,17 @@ public class GlobalExceptionHandler {//TODO could use aspect to log error messag
 
     @ExceptionHandler(HttpStatusCodeException.class)
     ResponseEntity<Map<String, String>> handleHttpStatusCodeException(HttpStatusCodeException e) {
+        log.error("HTTP Status Code Exception: {}", e.getMessage());
+        return ResponseEntity.status(e.getStatusCode())
+                .body(GetErrorBody(
+                        e.getMessage(),
+                        HttpStatus.valueOf(e.getStatusCode().value())
+                ));
+    }
+
+    //Mainly for proper error code in case of service instance unavailable
+    @ExceptionHandler(HttpServerErrorException.class)
+    ResponseEntity<Map<String, String>> handleHttpStatusCodeException(HttpServerErrorException e) {
         log.error("HTTP Status Code Exception: {}", e.getMessage());
         return ResponseEntity.status(e.getStatusCode())
                 .body(GetErrorBody(

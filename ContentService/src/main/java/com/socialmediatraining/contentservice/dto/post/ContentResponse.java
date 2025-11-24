@@ -13,4 +13,9 @@ public record ContentResponse(
         String text,
         Map<String, String> media_urls
 ) {
+
+    public static ContentResponse create(UUID id, UUID creator_id, UUID parentId, LocalDateTime created_at,
+                                         LocalDateTime updated_at, String text, Map<String, String> media_urls){
+        return new ContentResponse(id, creator_id, parentId, created_at, updated_at, text, media_urls);
+    }
 }

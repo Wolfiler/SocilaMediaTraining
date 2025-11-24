@@ -1,7 +1,5 @@
 package com.socialmediatraining.contentservice.service.post;
 
-import com.socialmediatraining.authenticationcommons.dto.SimpleUserDataObject;
-import com.socialmediatraining.contentservice.dto.ExternalUserResponseProxy;
 import com.socialmediatraining.contentservice.dto.post.ContentRequest;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
@@ -9,6 +7,7 @@ import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.repository.ExternalUserRepository;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.dtoutils.dto.UserCommentNotification;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
@@ -70,7 +69,7 @@ public class ContentService {
         }
 
         newUser = ExternalUser.builder()
-                .userId(UUID.fromString(simpleUserData.id()))
+                .userId(UUID.fromString(simpleUserData.userId()))
                 .username(simpleUserData.username())
                 .build();
         externalUserRepository.save(newUser);
@@ -109,7 +108,7 @@ public class ContentService {
         if(post.parentId() != null){
             boolean parentExists = contentRepository.existsByIdAndDeletedAtIsNull(post.parentId());
             if(!parentExists){
-                throw new PostNotFoundException("Parent post with id " + post.parentId() + " doesn't exists");
+                throw new PostNotFoundException("Parent post with userId " + post.parentId() + " doesn't exists");
             }
         }
 
@@ -124,7 +123,7 @@ public class ContentService {
 
         Content contentReturn = contentRepository.save(newPost);
         userDataKafkaTemplate.send("created-new-content",
-                new SimpleUserDataObject(externalUser.getUserId().toString(), externalUser.getUsername()));
+                SimpleUserDataObject.create(externalUser.getUserId().toString(), externalUser.getUsername()));
 
         if(contentReturn.getParentId() != null){
             Content parentPost = contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).orElse(null);
@@ -138,7 +137,7 @@ public class ContentService {
                     ));
         }
 
-        return new ContentResponse(
+        return ContentResponse.create(
                 contentReturn.getId(),
                 contentReturn.getCreatorId(),
                 contentReturn.getParentId(),
@@ -160,7 +159,7 @@ public class ContentService {
 
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId).orElse(null);
         if(content == null){
-            throw new PostNotFoundException("Cannot find post with id "+ postId + " to edit");
+            throw new PostNotFoundException("Cannot find post with userId "+ postId + " to edit");
         }
 
         if(!content.getCreatorId().equals(externalUser.getId())){
@@ -173,7 +172,7 @@ public class ContentService {
 
         Content contentReturn = contentRepository.save(content);
 
-        return new ContentResponse(
+        return ContentResponse.create(
                 contentReturn.getId(),
                 contentReturn.getCreatorId(),
                 contentReturn.getParentId(),
@@ -192,7 +191,7 @@ public class ContentService {
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId)
                 .orElse(null);
         if(content == null || content.getDeletedAt() != null){
-            throw new PostNotFoundException("Cannot find post with id "+ postId + " to delete");
+            throw new PostNotFoundException("Cannot find post with userId "+ postId + " to delete");
         }
 
         if(!content.getCreatorId().equals(externalUser.getId())){
@@ -219,10 +218,10 @@ public class ContentService {
                 : contentRepository.findByIdAndDeletedAtIsNull(contentId))
                 .orElse(null);
         if(content == null){
-            throw new PostNotFoundException("Cannot find post with id "+ contentId);
+            throw new PostNotFoundException("Cannot find post with userId "+ contentId);
         }
 
-        return new ContentResponse(
+        return ContentResponse.create(
                 content.getId(),
                 content.getCreatorId(),
                 content.getParentId(),
@@ -266,30 +265,27 @@ public class ContentService {
             default -> throw new RuntimeException("Invalid post type");
         };
 
-        return contentList.getContent().stream().map( content -> new ContentResponseAdmin(
-                        new ContentResponse(
-                                content.getId(),
-                                content.getCreatorId(),
-                                content.getParentId(),
-                                content.getCreatedAt(),
-                                content.getUpdatedAt(),
-                                content.getText(),
-                                content.getMediaUrls()
-
-                        ),
+        return contentList.getContent().stream().map( content -> ContentResponseAdmin.create(
+                        content.getId(),
+                        content.getCreatorId(),
+                        content.getParentId(),
+                        content.getCreatedAt(),
+                        content.getUpdatedAt(),
+                        content.getText(),
+                        content.getMediaUrls(),
                         content.getDeletedAt()
                 )
         ).collect(Collectors.toList());
     }
 
-    private Flux<ExternalUserResponseProxy> getListOfFollowedUser(String authHeader){
+    private Flux<SimpleUserDataObject> getListOfFollowedUser(String authHeader){
         String username = getUsernameFromAuthHeader(authHeader);
 
         return webClientBuilder.baseUrl("http://user-service").build()
                 .get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/v1/follow/follows/{username}")
-                        .queryParam("limit", 0)
+                        .queryParam("limit", 50)
                         .queryParam("orderBy", "activity")
                         .build(username))
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
@@ -312,7 +308,7 @@ public class ContentService {
                                 "User service is currently unavailable"
                         ))
                 )
-                .bodyToFlux(ExternalUserResponseProxy.class)
+                .bodyToFlux(SimpleUserDataObject.class)
                 .doOnNext(user -> log.info("Received user: {}", user));
     }
 
@@ -329,7 +325,7 @@ public class ContentService {
                     ));
                 })
                 .map(contentPage -> contentPage.map(content ->
-                        new ContentResponse(
+                        ContentResponse.create(
                                 content.getId(),
                                 content.getCreatorId(),
                                 content.getParentId(),
@@ -350,7 +346,7 @@ public class ContentService {
                          return Flux.just(Page.<ContentResponse>empty(pageable));
                      }
                      List<String> ids = users.stream()
-                             .map(ExternalUserResponseProxy::userId)
+                             .map(SimpleUserDataObject::userId)
                              .collect(Collectors.toList()
                      );
                      return getContentPage(ids, pageable);

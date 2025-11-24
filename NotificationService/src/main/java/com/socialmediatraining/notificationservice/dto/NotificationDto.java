@@ -14,7 +14,6 @@ public record NotificationDto(
         LocalDateTime readAt,
         Notification.NotificationStatus read
 ) {
-    //TODO do the same for all records
     public static NotificationDto create(String userId, String title,
                                          String content, Notification.NotificationType type
     ){

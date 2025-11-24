@@ -8,4 +8,8 @@ public record ContentRequest(
         String text,
         Map<String, String> media_urls
 ) {
+
+    public static ContentRequest create(UUID parentId,String text,Map<String, String> media_urls){
+        return new ContentRequest(parentId,text,media_urls);
+    }
 }
