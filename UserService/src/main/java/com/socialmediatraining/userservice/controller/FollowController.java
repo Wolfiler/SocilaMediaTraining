@@ -2,11 +2,9 @@ package com.socialmediatraining.userservice.controller;
 
 import com.socialmediatraining.userservice.dto.ExternalUserResponse;
 import com.socialmediatraining.userservice.service.FollowService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
-import jakarta.ws.rs.DefaultValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;

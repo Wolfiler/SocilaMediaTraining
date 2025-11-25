@@ -63,7 +63,8 @@ public class ContentService {
     @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
     public void createNewUser(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
-        if(newUser != null){//This should never be the case, might want to remove this check.
+        if(newUser != null){
+            //TODO custom error throw here
             log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
             return;
         }
@@ -90,12 +91,8 @@ public class ContentService {
     }
 
     @CachePut(value = "users", key = "#username", unless = "#result == null")
-    public ExternalUser getExternalUserByUsername(String username){
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
-        if(externalUser == null){
-            throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
-        }
-        return externalUser;
+    public Optional<ExternalUser> getExternalUserByUsername(String username){
+        return externalUserRepository.findExternalUserByUsername(username);
     }
 
     @CachePut(value = "posts", key = "#result.id", unless = "#result == null")
@@ -126,41 +123,33 @@ public class ContentService {
                 SimpleUserDataObject.create(externalUser.getUserId().toString(), externalUser.getUsername()));
 
         if(contentReturn.getParentId() != null){
-            Content parentPost = contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).orElse(null);
-            userCommentKafkaTemplate.send("new-comment",
-                    UserCommentNotification.create(
-                            parentPost.getCreatorId().toString(),
-                            externalUser.getId().toString(),
-                            externalUser.getUsername(),
-                            newPost.getId().toString(),
-                            parentPost.getText().substring(0, Math.min(parentPost.getText().length(), 20))
-                    ));
+            contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).ifPresent(
+                    parentPost -> userCommentKafkaTemplate.send("new-comment",
+                            UserCommentNotification.create(
+                                    parentPost.getCreatorId().toString(),
+                                    externalUser.getId().toString(),
+                                    externalUser.getUsername(),
+                                    newPost.getId().toString(),
+                                    parentPost.getText().substring(0, Math.min(parentPost.getText().length(), 20))
+                            )
+                    )
+            );
         }
 
-        return ContentResponse.create(
-                contentReturn.getId(),
-                contentReturn.getCreatorId(),
-                contentReturn.getParentId(),
-                contentReturn.getCreatedAt(),
-                contentReturn.getUpdatedAt(),
-                contentReturn.getText(),
-                contentReturn.getMediaUrls()
-        );
+        return ContentResponse.fromEntity(contentReturn);
     }
 
     @CachePut(value = "posts", key = "#postId", unless = "#result == null")
     public ContentResponse updateContent(UUID postId, String authHeader, ContentRequest postRequest){
         String username = getUsernameFromAuthHeader(authHeader);
-        ExternalUser externalUser = getExternalUserByUsername(username);
 
-        if(externalUser == null){
-            throw new UserDoesntExistsException("Error while fetching user from database when updating post.");
-        }
+        ExternalUser externalUser = getExternalUserByUsername(username).orElseThrow(
+                () -> new UserDoesntExistsException("Error while fetching user from database when updating post.")
+        );
 
-        Content content = contentRepository.findByIdAndDeletedAtIsNull(postId).orElse(null);
-        if(content == null){
-            throw new PostNotFoundException("Cannot find post with userId "+ postId + " to edit");
-        }
+        Content content = contentRepository.findByIdAndDeletedAtIsNull(postId).orElseThrow(
+                () -> new PostNotFoundException("Cannot find post with userId "+ postId + " to edit")
+        );
 
         if(!content.getCreatorId().equals(externalUser.getId())){
             throw new UserActionForbiddenException("User is not authorized to update the post of another post");
@@ -172,15 +161,7 @@ public class ContentService {
 
         Content contentReturn = contentRepository.save(content);
 
-        return ContentResponse.create(
-                contentReturn.getId(),
-                contentReturn.getCreatorId(),
-                contentReturn.getParentId(),
-                contentReturn.getCreatedAt(),
-                contentReturn.getUpdatedAt(),
-                contentReturn.getText(),
-                contentReturn.getMediaUrls()
-        );
+        return ContentResponse.fromEntity(contentReturn);
     }
 
     @CacheEvict(value = "posts", key = "#postId")
@@ -216,20 +197,10 @@ public class ContentService {
         Content content = (getDeletedContent ?
                 contentRepository.findById(contentId)
                 : contentRepository.findByIdAndDeletedAtIsNull(contentId))
-                .orElse(null);
-        if(content == null){
-            throw new PostNotFoundException("Cannot find post with userId "+ contentId);
-        }
+                .orElseThrow(() ->
+                        new PostNotFoundException("Cannot find post with userId "+ contentId));
 
-        return ContentResponse.create(
-                content.getId(),
-                content.getCreatorId(),
-                content.getParentId(),
-                content.getCreatedAt(),
-                content.getUpdatedAt(),
-                content.getText(),
-                content.getMediaUrls()
-        );
+        return ContentResponse.fromEntity(content);
     }
 
     public Page<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
@@ -244,10 +215,9 @@ public class ContentService {
     }
 
     private List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, boolean getDeletedContents,String postType){
-        ExternalUser externalUser = getExternalUserByUsername(username);
-        if(externalUser == null){
-            throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
-        }
+        ExternalUser externalUser = getExternalUserByUsername(username).orElseThrow(
+                () -> new UserDoesntExistsException("User with username " + username + " doesn't exists")
+        );
 
         Page<Content> contentList = switch (postType) {
             case "all" -> (getDeletedContents ?
@@ -265,17 +235,8 @@ public class ContentService {
             default -> throw new RuntimeException("Invalid post type");
         };
 
-        return contentList.getContent().stream().map( content -> ContentResponseAdmin.create(
-                        content.getId(),
-                        content.getCreatorId(),
-                        content.getParentId(),
-                        content.getCreatedAt(),
-                        content.getUpdatedAt(),
-                        content.getText(),
-                        content.getMediaUrls(),
-                        content.getDeletedAt()
-                )
-        ).collect(Collectors.toList());
+        return contentList.getContent().stream().map(ContentResponseAdmin::fromEntity)
+                .collect(Collectors.toList());
     }
 
     private Flux<SimpleUserDataObject> getListOfFollowedUser(String authHeader){
@@ -287,7 +248,8 @@ public class ContentService {
                         .path("/api/v1/follow/follows/{username}")
                         .queryParam("limit", 50)
                         .queryParam("orderBy", "activity")
-                        .build(username))
+                        .build(username)
+                )
                 .header(HttpHeaders.AUTHORIZATION, authHeader)
                 .header("Service","content-service")
                 .retrieve()
@@ -296,16 +258,13 @@ public class ContentService {
                                 .flatMap(errorBody -> {
                                     log.error("Client error from user-service: {}", errorBody);
                                     return Mono.error(
-                                            new ResponseStatusException(
-                                                    response.statusCode(),
-                                                    errorBody
+                                            new ResponseStatusException(response.statusCode(), errorBody
                                     ));
                                 })
                 )
                 .onStatus(HttpStatusCode::is5xxServerError, response ->
                         Mono.error(new ResponseStatusException(
-                                HttpStatus.SERVICE_UNAVAILABLE,
-                                "User service is currently unavailable"
+                                HttpStatus.SERVICE_UNAVAILABLE, "User service is currently unavailable"
                         ))
                 )
                 .bodyToFlux(SimpleUserDataObject.class)
@@ -320,20 +279,10 @@ public class ContentService {
                 .onErrorResume(e -> {
                     log.error("Error while fetching content for user feed", e);
                     return Mono.error(new ResponseStatusException(
-                            HttpStatus.INTERNAL_SERVER_ERROR,
-                            "Error processing your feed"
+                            HttpStatus.INTERNAL_SERVER_ERROR, "Error processing your feed"
                     ));
                 })
-                .map(contentPage -> contentPage.map(content ->
-                        ContentResponse.create(
-                                content.getId(),
-                                content.getCreatorId(),
-                                content.getParentId(),
-                                content.getCreatedAt(),
-                                content.getUpdatedAt(),
-                                content.getText(),
-                                content.getMediaUrls()
-                        )
+                .map(contentPage -> contentPage.map(ContentResponse::fromEntity
                 ));
     }
 

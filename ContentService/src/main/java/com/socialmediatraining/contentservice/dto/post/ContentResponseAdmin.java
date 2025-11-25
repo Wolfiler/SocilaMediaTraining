@@ -1,5 +1,7 @@
 package com.socialmediatraining.contentservice.dto.post;
 
+import com.socialmediatraining.contentservice.entity.Content;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -15,5 +17,17 @@ public record ContentResponseAdmin(
         return new ContentResponseAdmin(
                 ContentResponse.create(id, creator_id,parentId,created_at,updated_at,text,media_urls)
                 ,deletedAt);
+    }
+
+    public static ContentResponseAdmin fromEntity(Content content){
+        return ContentResponseAdmin.create(
+                content.getId(),
+                content.getCreatorId(),
+                content.getParentId(),
+                content.getCreatedAt(),
+                content.getUpdatedAt(),
+                content.getText(),
+                content.getMediaUrls(),
+                content.getDeletedAt());
     }
 }
