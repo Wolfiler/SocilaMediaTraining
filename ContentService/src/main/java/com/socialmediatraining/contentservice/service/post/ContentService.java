@@ -7,6 +7,8 @@ import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.repository.ExternalUserRepository;
+import com.socialmediatraining.contentservice.service.user.UserCacheService;
+import com.socialmediatraining.dtoutils.dto.PageResponse;
 import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.dtoutils.dto.UserCommentNotification;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
@@ -16,8 +18,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.HttpHeaders;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -45,59 +46,23 @@ import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFro
 public class ContentService {
 
     private final ContentRepository contentRepository;
-    private final ExternalUserRepository externalUserRepository;
     private final KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
     private final KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate;
     private final WebClient.Builder webClientBuilder;
 
+    private final UserCacheService userCacheService;
+
     @Autowired
-    public ContentService(ContentRepository contentRepository, ExternalUserRepository externalUserRepository, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate, KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate, WebClient.Builder webClientBuilder) {
+    public ContentService(ContentRepository contentRepository, KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate, KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate, WebClient.Builder webClientBuilder, UserCacheService userCacheService) {
         this.contentRepository = contentRepository;
-        this.externalUserRepository = externalUserRepository;
         this.userDataKafkaTemplate = userDataKafkaTemplate;
         this.userCommentKafkaTemplate = userCommentKafkaTemplate;
         this.webClientBuilder = webClientBuilder;
+        this.userCacheService = userCacheService;
     }
 
-    @KafkaListener(topics = "created-new-user", groupId = "content-service" )
-    @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
-    public void createNewUser(SimpleUserDataObject simpleUserData) {
-        ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
-        if(newUser != null){
-            //TODO custom error throw here
-            log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
-            return;
-        }
-
-        newUser = ExternalUser.builder()
-                .userId(UUID.fromString(simpleUserData.userId()))
-                .username(simpleUserData.username())
-                .build();
-        externalUserRepository.save(newUser);
-        log.info("Kafka topic caught -> New user created: {}", simpleUserData);
-    }
-
-    @CachePut(value = "users", key = "#username", unless = "#result == null")
-    public ExternalUser getOrCreatNewExternalUserIfNotExists(String subId, String username){
-        ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
-        if(externalUser == null){
-            ExternalUser newUser = ExternalUser.builder()
-                    .userId(UUID.fromString(subId))
-                    .username(username)
-                    .build();
-            externalUser = externalUserRepository.save(newUser);
-        }
-        return externalUser;
-    }
-
-    @CachePut(value = "users", key = "#username", unless = "#result == null")
-    public Optional<ExternalUser> getExternalUserByUsername(String username){
-        return externalUserRepository.findExternalUserByUsername(username);
-    }
-
-    @CachePut(value = "posts", key = "#result.id", unless = "#result == null")
     public ContentResponse createContent(String authHeader, ContentRequest post){
-        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
+        ExternalUser externalUser = userCacheService.getOrCreatNewExternalUserIfNotExists(
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
 
@@ -139,11 +104,10 @@ public class ContentService {
         return ContentResponse.fromEntity(contentReturn);
     }
 
-    @CachePut(value = "posts", key = "#postId", unless = "#result == null")
     public ContentResponse updateContent(UUID postId, String authHeader, ContentRequest postRequest){
         String username = getUsernameFromAuthHeader(authHeader);
 
-        ExternalUser externalUser = getExternalUserByUsername(username).orElseThrow(
+        ExternalUser externalUser = userCacheService.getOptionalExternalUserByUsername(username).orElseThrow(
                 () -> new UserDoesntExistsException("Error while fetching user from database when updating post.")
         );
 
@@ -164,9 +128,8 @@ public class ContentService {
         return ContentResponse.fromEntity(contentReturn);
     }
 
-    @CacheEvict(value = "posts", key = "#postId")
     public String softDeleteContent(UUID postId, String authHeader){
-        ExternalUser externalUser = getOrCreatNewExternalUserIfNotExists(
+        ExternalUser externalUser = userCacheService.getOrCreatNewExternalUserIfNotExists(
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId)
@@ -215,7 +178,7 @@ public class ContentService {
     }
 
     private List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, boolean getDeletedContents,String postType){
-        ExternalUser externalUser = getExternalUserByUsername(username).orElseThrow(
+        ExternalUser externalUser = userCacheService.getOptionalExternalUserByUsername(username).orElseThrow(
                 () -> new UserDoesntExistsException("User with username " + username + " doesn't exists")
         );
 
@@ -239,9 +202,7 @@ public class ContentService {
                 .collect(Collectors.toList());
     }
 
-    private Flux<SimpleUserDataObject> getListOfFollowedUser(String authHeader){
-        String username = getUsernameFromAuthHeader(authHeader);
-
+    private Flux<SimpleUserDataObject> getListOfFollowedUser(String username, String authHeader){
         return webClientBuilder.baseUrl("http://user-service").build()
                 .get()
                 .uri(uriBuilder -> uriBuilder
@@ -286,19 +247,20 @@ public class ContentService {
                 ));
     }
 
-    public Flux<Page<ContentResponse>> getUserFeed(String authHeader, Pageable pageable){
-        return getListOfFollowedUser(authHeader)
+    @Cacheable(value = "userFeed", key = "#username+':'+pageable.pageNumber", condition = "#result != null")
+    public Flux<PageResponse<ContentResponse>> getUserFeed(String username, String authHeader, Pageable pageable){
+        return getListOfFollowedUser(username,authHeader)
                  .collectList()
                  .flatMapMany( users -> {
                      if (users.isEmpty()) {
-                         log.info("No followed users found, returning empty feed");
-                         return Flux.just(Page.<ContentResponse>empty(pageable));
+                         return Flux.just(PageResponse.from(Page.<ContentResponse>empty(pageable)));
                      }
                      List<String> ids = users.stream()
                              .map(SimpleUserDataObject::userId)
                              .collect(Collectors.toList()
                      );
-                     return getContentPage(ids, pageable);
+                     return getContentPage(ids, pageable)
+                             .map(PageResponse::from);
                  })
                 .onErrorResume(ResponseStatusException.class, e -> {
                     log.error("Error while fetching user feed", e);

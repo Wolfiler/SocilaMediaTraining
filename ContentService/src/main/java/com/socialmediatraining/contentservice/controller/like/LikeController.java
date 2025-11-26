@@ -2,6 +2,7 @@ package com.socialmediatraining.contentservice.controller.like;
 
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.service.like.LikeService;
+import com.socialmediatraining.dtoutils.dto.PageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,8 +26,6 @@ public class LikeController {
         this.likeService = likeService;
     }
 
-    //region LIKE REGION
-    //==================================================================================================================
     @PostMapping("/{postId}")
     public ResponseEntity<String> likePost(
             @RequestHeader("Authorization") String authHeader,
@@ -35,7 +34,7 @@ public class LikeController {
     }
 
     @GetMapping("/profile/{username}")
-    public ResponseEntity<Page<ContentResponse>> getAllLikedPosts(
+    public ResponseEntity<PageResponse<ContentResponse>> getAllLikedPosts(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
@@ -49,6 +48,4 @@ public class LikeController {
             @PathVariable("postId") UUID postId) {
         return ResponseEntity.status(HttpStatus.OK).body(likeService.deleteLike(authHeader, postId));
     }
-    //==================================================================================================================
-    //endregion
 }

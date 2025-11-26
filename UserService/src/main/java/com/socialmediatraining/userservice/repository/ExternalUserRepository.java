@@ -11,6 +11,5 @@ import java.util.UUID;
 @Repository
 public interface ExternalUserRepository extends JpaRepository<ExternalUser, UUID> {
 
-    @CachePut(value = "users", key = "#username", condition = "#result != null")
     Optional<ExternalUser> findExternalUserByUsername(String username);
 }

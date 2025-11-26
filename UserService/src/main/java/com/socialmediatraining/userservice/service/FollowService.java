@@ -12,15 +12,12 @@ import com.socialmediatraining.userservice.repository.ExternalUserFollowReposito
 import com.socialmediatraining.userservice.repository.ExternalUserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -42,8 +39,7 @@ public class FollowService {
     }
 
     @KafkaListener(topics = "created-new-content", groupId = "user-service" )
-    @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
-    public void createNewUser(SimpleUserDataObject simpleUserData) {
+    public void updateUserLastActivity(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
         if(newUser == null){
             log.error("User not in database. This should not happen, there might be an issue in user creation flow");
@@ -56,8 +52,7 @@ public class FollowService {
     }
 
     @KafkaListener(topics = "created-new-user", groupId = "user-service" )
-    @CachePut(value = "users", key = "#simpleUserData.username()", unless = "#result == null")
-    public void updateUserLastActivity(SimpleUserDataObject simpleUserData) {
+    public void createNewUser(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
         if(newUser != null){//This should never be the case, might want to remove this check.
             log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
@@ -171,6 +166,4 @@ public class FollowService {
                         )
         ).toList();
     }
-
-    //Add kafka event consume of new user
 }

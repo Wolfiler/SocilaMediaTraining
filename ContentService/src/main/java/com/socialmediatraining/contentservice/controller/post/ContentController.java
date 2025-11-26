@@ -1,8 +1,10 @@
 package com.socialmediatraining.contentservice.controller.post;
 
+import com.socialmediatraining.authenticationcommons.JwtUtils;
 import com.socialmediatraining.contentservice.dto.post.ContentRequest;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.service.post.ContentService;
+import com.socialmediatraining.dtoutils.dto.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,12 +76,13 @@ public class ContentController {
     }
 
     @GetMapping("/feed")
-    public ResponseEntity<Flux<Page<ContentResponse>>> getUserFeed(
+    public ResponseEntity<Flux<PageResponse<ContentResponse>>> getUserFeed(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ){
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.status(HttpStatus.OK).body(contentService.getUserFeed(authHeader,pageable));
+
+        return ResponseEntity.status(HttpStatus.OK).body(contentService.getUserFeed(JwtUtils.getUsernameFromAuthHeader(authHeader),authHeader,pageable));
     }
 }

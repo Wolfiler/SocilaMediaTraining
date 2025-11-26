@@ -1,6 +1,7 @@
 package com.socialmediatraining.contentservice.repository;
 
 import com.socialmediatraining.contentservice.entity.ExternalUser;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

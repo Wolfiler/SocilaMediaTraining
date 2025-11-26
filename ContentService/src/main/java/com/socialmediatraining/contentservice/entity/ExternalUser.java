@@ -35,11 +35,11 @@ public class ExternalUser {
 
     //Same as like, and kinda same behavior, might implement it one day, but no priority
     public void addContentFavorite(UserContentFavorite contentFavorite){
-
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public void removeContentFavorite(UserContentFavorite contentFavorite){
-
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public UserContentLike addContentLike(Content content){
