@@ -1,28 +1,43 @@
 package com.socialmediatraining.gatewayservice.route;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
+import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
+import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.function.RouterFunction;
-import org.springframework.web.servlet.function.ServerResponse;
+import org.springframework.http.HttpStatus;
 
-import static org.springframework.cloud.gateway.server.mvc.filter.LoadBalancerFilterFunctions.lb;
-import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
+import static jakarta.ws.rs.HttpMethod.*;
 
 @Configuration
 @Slf4j
-public class NotificationRoute {
+public class NotificationRoute extends AbstractRoute {
+    @Autowired
+    public NotificationRoute(@Qualifier("notificationRateLimiter") RedisRateLimiter rateLimiters, KeyResolver userKeyResolver) {
+        super(rateLimiters, userKeyResolver);
+    }
+
     @Bean
-    public RouterFunction<ServerResponse> notificationRoutes() {
-        return GatewayRouterFunctions.route("notification-service")
-                .GET("/api/v1/notifications/**", http())
-                .PUT("/api/v1/notifications/**", http())
-                .DELETE("/api/v1/notifications/**", http())
-                .filter(lb("notification-service"))
-                .build().filter((request, next) -> {
-                    log.info("Request: {}", request.uri());
-                    return next.handle(request);
-                });
+    public RouteLocator notificationRoutes(RouteLocatorBuilder builder) {
+        return builder.routes()
+                .route("notification-service", route -> route
+                        .path("/api/v1/notifications/**")
+                        .and().method(GET, POST, PUT, DELETE)
+                        .filters(filter -> filter
+                                .filter(loggingFilter())
+                                .requestRateLimiter(config -> config
+                                        .setRateLimiter(rateLimiters)
+                                        .setKeyResolver(userKeyResolver)
+                                        .setDenyEmptyKey(false)
+                                        .setStatusCode(HttpStatus.TOO_MANY_REQUESTS)
+                                )
+                        )
+                        .uri("lb://notification-service")
+                )
+                .build();
     }
 }

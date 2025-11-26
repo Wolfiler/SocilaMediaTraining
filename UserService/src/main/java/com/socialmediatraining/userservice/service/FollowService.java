@@ -28,7 +28,6 @@ public class FollowService {
 
     private final ExternalUserRepository externalUserRepository;
     private final ExternalUserFollowRepository userFollowRepository;
-
     private final KafkaTemplate<String, UserFollowNotification> kafkaTemplate;
 
     @Autowired
