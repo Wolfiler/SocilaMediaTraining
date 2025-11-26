@@ -6,7 +6,6 @@ import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
 import com.socialmediatraining.contentservice.entity.Content;
 import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
-import com.socialmediatraining.contentservice.repository.ExternalUserRepository;
 import com.socialmediatraining.contentservice.service.user.UserCacheService;
 import com.socialmediatraining.dtoutils.dto.PageResponse;
 import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
@@ -24,7 +23,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -85,7 +83,7 @@ public class ContentService {
 
         Content contentReturn = contentRepository.save(newPost);
         userDataKafkaTemplate.send("created-new-content",
-                SimpleUserDataObject.create(externalUser.getUserId().toString(), externalUser.getUsername()));
+                SimpleUserDataObject.create(externalUser.getId().toString(), externalUser.getUsername()));
 
         if(contentReturn.getParentId() != null){
             contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).ifPresent(
@@ -166,15 +164,15 @@ public class ContentService {
         return ContentResponse.fromEntity(content);
     }
 
-    public Page<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
+    public PageResponse<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
         List<ContentResponseAdmin> posts = getAllContentFromUser(username,pageable,false,postType);
         List<ContentResponse> contentResponses = posts.stream().map(ContentResponseAdmin::postResponse).collect(Collectors.toList());
-        return new PageImpl<>(contentResponses,pageable,contentResponses.size());
+        return PageResponse.from(new PageImpl<>(contentResponses,pageable,contentResponses.size()));
     }
 
-    public Page<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable){
+    public PageResponse<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable){
         List<ContentResponseAdmin> content = getAllContentFromUser(username,pageable,true,"all");
-        return new PageImpl<>(content,pageable,content.size());
+        return PageResponse.from(new PageImpl<>(content,pageable,content.size()));
     }
 
     private List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, boolean getDeletedContents,String postType){

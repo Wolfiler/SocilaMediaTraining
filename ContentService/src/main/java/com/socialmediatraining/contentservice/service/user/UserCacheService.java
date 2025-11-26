@@ -42,7 +42,7 @@ public class UserCacheService {
         if(externalUser == null){
             log.info("User doesn't exists, creating it now");
             ExternalUser newUser = ExternalUser.builder()
-                    .userId(UUID.fromString(subId))
+                    .id(UUID.fromString(subId))
                     .username(username)
                     .build();
             externalUser = externalUserRepository.save(newUser);
@@ -61,7 +61,7 @@ public class UserCacheService {
         }
 
         newUser = ExternalUser.builder()
-                .userId(UUID.fromString(simpleUserData.userId()))
+                .id(UUID.fromString(simpleUserData.userId()))
                 .username(simpleUserData.username())
                 .build();
         externalUserRepository.save(newUser);

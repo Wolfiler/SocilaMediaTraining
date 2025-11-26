@@ -5,7 +5,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,7 +27,7 @@ public interface ContentRepository extends JpaRepository<Content, UUID> {
     @Query( "SELECT c " +
             "FROM Content c " +
             "INNER JOIN ExternalUser u ON c.creatorId = u.id " +
-            "WHERE u.userId IN :ids " +
+            "WHERE u.id IN :ids " +
             "AND c.deletedAt IS NULL " +
             "ORDER BY c.createdAt DESC")
     Optional<Page<Content>> findAllByCreatorIdInAndDeletedAtIsNull(List<String> ids, Pageable pageable);

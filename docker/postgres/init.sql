@@ -1,8 +1,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 CREATE TABLE external_user(
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id varchar(255) NOT NULL UNIQUE,
+    id UUID PRIMARY KEY,
     username varchar(255) NOT NULL UNIQUE
 );
 

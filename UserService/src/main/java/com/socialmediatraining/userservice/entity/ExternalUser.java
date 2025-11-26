@@ -2,7 +2,6 @@ package com.socialmediatraining.userservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -19,12 +18,7 @@ import java.util.UUID;
 public class ExternalUser {
 
     @Id
-    @UuidGenerator
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID id;
-
-    @Column(name = "user_id",unique = true, nullable = false)
-    private UUID userId;
 
     @Column(unique = true, nullable = false)
     private String username;

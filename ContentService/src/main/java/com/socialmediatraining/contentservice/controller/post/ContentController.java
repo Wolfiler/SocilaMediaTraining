@@ -62,7 +62,7 @@ public class ContentController {
     }
 
     @GetMapping("/profile/{username}/posts")
-    public ResponseEntity<Page<ContentResponse>> getAllPostsFromUsername(
+    public ResponseEntity<PageResponse<ContentResponse>> getAllPostsFromUsername(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "all")
             @Pattern(regexp = "^(?i)(all|post|comment)$",

@@ -17,12 +17,7 @@ import java.util.*;
 @Builder
 public class ExternalUser {
     @Id
-    @UuidGenerator
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID id;
-
-    @Column(name = "user_id")
-    private UUID userId;
 
     @Column(name = "username")
     private String username;

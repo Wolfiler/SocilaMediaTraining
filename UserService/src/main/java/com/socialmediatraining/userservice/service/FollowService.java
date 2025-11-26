@@ -60,7 +60,7 @@ public class FollowService {
         }
 
         newUser = ExternalUser.builder()
-                .userId(UUID.fromString(simpleUserData.userId()))
+                .id(UUID.fromString(simpleUserData.userId()))
                 .username(simpleUserData.username())
                 .build();
         externalUserRepository.save(newUser);
@@ -92,8 +92,8 @@ public class FollowService {
         userFollowRepository.save(userFollow);
 
         kafkaTemplate.send("new-follower", UserFollowNotification.create(
-                userToFollow.getUserId().toString(),userToFollow.getUsername(),
-                user.getUserId().toString(),user.getUsername()));
+                userToFollow.getId().toString(),userToFollow.getUsername(),
+                user.getId().toString(),user.getUsername()));
 
         return String.format("User %s followed user %s successfully", userUsername, username);
     }
@@ -129,7 +129,7 @@ public class FollowService {
         List<ExternalUserResponse> followersList =  user.getFollowers().stream().map(
                 externalUserFollow ->
                         ExternalUserResponse.create(
-                                externalUserFollow.getFollowingUserId().getUserId().toString(),
+                                externalUserFollow.getFollowingUserId().getId().toString(),
                                 externalUserFollow.getFollowingUserId().getUsername()
                         )
         ).toList();
@@ -161,7 +161,7 @@ public class FollowService {
         return followedUsers.stream().map(
                 followedUser ->
                         ExternalUserResponse.create(
-                                followedUser.getUserId().toString(),
+                                followedUser.getId().toString(),
                                 followedUser.getUsername()
                         )
         ).toList();
