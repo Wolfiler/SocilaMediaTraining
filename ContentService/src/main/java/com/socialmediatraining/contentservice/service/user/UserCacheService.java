@@ -10,7 +10,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -19,25 +18,20 @@ public class UserCacheService {
 
     private final ExternalUserRepository externalUserRepository;
 
-
     @Autowired
     public UserCacheService(ExternalUserRepository externalUserRepository) {
         this.externalUserRepository = externalUserRepository;
     }
 
     @Cacheable(value = "users", key = "#username", condition = "#result != null", sync = true)
-    public ExternalUser getExternalUserByUsername(String username) {
-        return externalUserRepository.findExternalUserByUsername(username)
+    public SimpleUserDataObject getUserDataByUsername(String username) {
+        ExternalUser user = externalUserRepository.findExternalUserByUsername(username)
                 .orElseThrow(() -> new UserDoesntExistsException("User not found: " + username));
+        return SimpleUserDataObject.create(user.getId().toString(),user.getUsername());
     }
 
     @Cacheable(value = "users", key = "#username", condition = "#result != null",sync = true)
-    public Optional<ExternalUser> getOptionalExternalUserByUsername(String username){
-        return externalUserRepository.findExternalUserByUsername(username);
-    }
-
-    @Cacheable(value = "users", key = "#username", condition = "#result != null",sync = true)
-    public ExternalUser getOrCreatNewExternalUserIfNotExists(String subId, String username){
+    public SimpleUserDataObject getOrCreatNewExternalUserIfNotExists(String subId, String username){
         ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
             log.info("User doesn't exists, creating it now");
@@ -47,12 +41,12 @@ public class UserCacheService {
                     .build();
             externalUser = externalUserRepository.save(newUser);
         }
-        return externalUser;
+        return SimpleUserDataObject.create(externalUser.getId().toString(),externalUser.getUsername());
     }
 
     @KafkaListener(topics = "created-new-user", groupId = "content-service" )
     @Cacheable(value = "users", key = "#result.username", condition = "#result != null",sync = true)
-    public ExternalUser createNewUser(SimpleUserDataObject simpleUserData) {
+    public SimpleUserDataObject createNewUser(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
         if(newUser != null){
             //TODO custom error throw here
@@ -66,11 +60,15 @@ public class UserCacheService {
                 .build();
         externalUserRepository.save(newUser);
         log.info("Kafka topic caught -> New user created: {}", simpleUserData);
-        return newUser;
+        return SimpleUserDataObject.create(newUser.getId().toString(),newUser.getUsername());
     }
 
-    @Cacheable(value = "users", key = "#result.username", condition = "#result != null",sync = true)
-    public void saveUserInDb(ExternalUser user){
+    public ExternalUser getExternalUserByUsername(String username){
+        return externalUserRepository.findExternalUserByUsername(username)
+                .orElseThrow(() -> new UserDoesntExistsException("User not found: " + username));
+    }
+
+    public void saveExternalUser(ExternalUser user){
         externalUserRepository.save(user);
     }
 }

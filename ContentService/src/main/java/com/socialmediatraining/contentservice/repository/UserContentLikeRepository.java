@@ -12,9 +12,9 @@ import java.util.UUID;
 
 public interface UserContentLikeRepository extends JpaRepository<UserContentLike, UUID> {
 
-    Optional<Page<UserContentLike>> findAllByUser(ExternalUser user, Pageable pageable);
+    Optional<Page<UserContentLike>> findAllByUser_Id(UUID userId, Pageable pageable);
 
-    Optional<UserContentLike> findByUserAndContent(ExternalUser user, Content content);
+    Optional<UserContentLike> findByContentAndUser_Id(Content content,UUID userId);
 
     boolean existsByUserIdAndContentId(UUID userId, UUID contentId);
 

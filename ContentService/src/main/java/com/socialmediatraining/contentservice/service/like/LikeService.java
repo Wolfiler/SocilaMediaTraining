@@ -8,6 +8,7 @@ import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.repository.UserContentLikeRepository;
 import com.socialmediatraining.contentservice.service.user.UserCacheService;
 import com.socialmediatraining.dtoutils.dto.PageResponse;
+import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
@@ -37,9 +38,7 @@ public class LikeService {
 
     public String likeContent(String authHeader, UUID contentId){
         String subId = getSubIdFromAuthHeader(authHeader);
-        ExternalUser externalUser = userCacheService.getOrCreatNewExternalUserIfNotExists(
-                getSubIdFromAuthHeader(authHeader),
-                getUsernameFromAuthHeader(authHeader));
+        ExternalUser externalUser = userCacheService.getExternalUserByUsername(getUsernameFromAuthHeader(authHeader));
 
         Content post = contentRepository.findByIdAndDeletedAtIsNull(contentId)
                 .orElse(null);
@@ -70,25 +69,23 @@ public class LikeService {
             throw new PostNotFoundException("Post with userId " + contentId + " doesn't exists");
         }
 
-        UserContentLike userContentLike = userContentLikeRepository.findByUserAndContent(externalUser,post)
+        UserContentLike userContentLike = userContentLikeRepository.findByContentAndUser_Id(post,externalUser.getId())
                 .orElse(null);
         if(userContentLike == null){
             throw new UserActionForbiddenException("Post with userId " + contentId + " isn't liked by user " + externalUser.getUsername());
         }
 
         externalUser.removeContentLike(post);
-        userCacheService.saveUserInDb(externalUser);
+        userCacheService.saveExternalUser(externalUser);
 
         return String.format("User %s unliked post with userId %s",username,contentId);
     }
 
     public PageResponse<ContentResponse> getAllLikedContentsByUser(String username, Pageable pageable) {
-        ExternalUser externalUser = userCacheService.getExternalUserByUsername(username);
-        if(externalUser == null){
-            throw new UserDoesntExistsException("User with username " + username + " doesn't exists");
-        }
+        SimpleUserDataObject externalUser = userCacheService.getUserDataByUsername(username);
 
-        Page<UserContentLike> userContentLikeList = userContentLikeRepository.findAllByUser(externalUser,pageable)
+        Page<UserContentLike> userContentLikeList = userContentLikeRepository
+                .findAllByUser_Id(UUID.fromString(externalUser.userId()),pageable)
                 .orElse(null);
 
         if(userContentLikeList == null || userContentLikeList.getContent().isEmpty()){

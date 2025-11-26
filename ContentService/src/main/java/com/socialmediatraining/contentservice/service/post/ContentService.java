@@ -4,7 +4,6 @@ import com.socialmediatraining.contentservice.dto.post.ContentRequest;
 import com.socialmediatraining.contentservice.dto.post.ContentResponse;
 import com.socialmediatraining.contentservice.dto.post.ContentResponseAdmin;
 import com.socialmediatraining.contentservice.entity.Content;
-import com.socialmediatraining.contentservice.entity.ExternalUser;
 import com.socialmediatraining.contentservice.repository.ContentRepository;
 import com.socialmediatraining.contentservice.service.user.UserCacheService;
 import com.socialmediatraining.dtoutils.dto.PageResponse;
@@ -12,7 +11,6 @@ import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.dtoutils.dto.UserCommentNotification;
 import com.socialmediatraining.exceptioncommons.exception.PostNotFoundException;
 import com.socialmediatraining.exceptioncommons.exception.UserActionForbiddenException;
-import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.HttpHeaders;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +58,7 @@ public class ContentService {
     }
 
     public ContentResponse createContent(String authHeader, ContentRequest post){
-        ExternalUser externalUser = userCacheService.getOrCreatNewExternalUserIfNotExists(
+        SimpleUserDataObject userData = userCacheService.getOrCreatNewExternalUserIfNotExists(
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
 
@@ -73,7 +71,7 @@ public class ContentService {
         }
 
         Content newPost = Content.builder()
-                .creatorId(externalUser.getId())
+                .creatorId(UUID.fromString(userData.userId()))
                 .parentId(post.parentId())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -82,16 +80,15 @@ public class ContentService {
                 .build();
 
         Content contentReturn = contentRepository.save(newPost);
-        userDataKafkaTemplate.send("created-new-content",
-                SimpleUserDataObject.create(externalUser.getId().toString(), externalUser.getUsername()));
+        userDataKafkaTemplate.send("created-new-content", userData);
 
         if(contentReturn.getParentId() != null){
             contentRepository.findByIdAndDeletedAtIsNull(post.parentId()).ifPresent(
                     parentPost -> userCommentKafkaTemplate.send("new-comment",
                             UserCommentNotification.create(
                                     parentPost.getCreatorId().toString(),
-                                    externalUser.getId().toString(),
-                                    externalUser.getUsername(),
+                                    userData.userId(),
+                                    userData.username(),
                                     newPost.getId().toString(),
                                     parentPost.getText().substring(0, Math.min(parentPost.getText().length(), 20))
                             )
@@ -105,15 +102,13 @@ public class ContentService {
     public ContentResponse updateContent(UUID postId, String authHeader, ContentRequest postRequest){
         String username = getUsernameFromAuthHeader(authHeader);
 
-        ExternalUser externalUser = userCacheService.getOptionalExternalUserByUsername(username).orElseThrow(
-                () -> new UserDoesntExistsException("Error while fetching user from database when updating post.")
-        );
+        SimpleUserDataObject userDataObject = userCacheService.getUserDataByUsername(username);
 
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId).orElseThrow(
                 () -> new PostNotFoundException("Cannot find post with userId "+ postId + " to edit")
         );
 
-        if(!content.getCreatorId().equals(externalUser.getId())){
+        if(!content.getCreatorId().toString().equals(userDataObject.userId())){
             throw new UserActionForbiddenException("User is not authorized to update the post of another post");
         }
 
@@ -127,7 +122,7 @@ public class ContentService {
     }
 
     public String softDeleteContent(UUID postId, String authHeader){
-        ExternalUser externalUser = userCacheService.getOrCreatNewExternalUserIfNotExists(
+        SimpleUserDataObject userData = userCacheService.getOrCreatNewExternalUserIfNotExists(
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
         Content content = contentRepository.findByIdAndDeletedAtIsNull(postId)
@@ -136,7 +131,7 @@ public class ContentService {
             throw new PostNotFoundException("Cannot find post with userId "+ postId + " to delete");
         }
 
-        if(!content.getCreatorId().equals(externalUser.getId())){
+        if(!content.getCreatorId().toString().equals(userData.userId())){
             throw new UserActionForbiddenException("Cannot delete post of another user !");
         }
 
@@ -176,22 +171,20 @@ public class ContentService {
     }
 
     private List<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, boolean getDeletedContents,String postType){
-        ExternalUser externalUser = userCacheService.getOptionalExternalUserByUsername(username).orElseThrow(
-                () -> new UserDoesntExistsException("User with username " + username + " doesn't exists")
-        );
+        SimpleUserDataObject userData = userCacheService.getUserDataByUsername(username);
 
         Page<Content> contentList = switch (postType) {
             case "all" -> (getDeletedContents ?
-                    contentRepository.findAllByCreatorId(externalUser.getId(), pageable) :
-                    contentRepository.findAllByCreatorIdAndDeletedAtIsNull(externalUser.getId(), pageable))
+                    contentRepository.findAllByCreatorId(UUID.fromString(userData.userId()), pageable) :
+                    contentRepository.findAllByCreatorIdAndDeletedAtIsNull(UUID.fromString(userData.userId()), pageable))
                     .orElse(new PageImpl<>(new ArrayList<>()));
             case "post" -> (getDeletedContents ?
-                    contentRepository.findAllByCreatorIdAndParentIdIsNull(externalUser.getId(), pageable) :
-                    contentRepository.findAllByCreatorIdAndParentIdIsNullAndDeletedAtIsNull(externalUser.getId(), pageable))
+                    contentRepository.findAllByCreatorIdAndParentIdIsNull(UUID.fromString(userData.userId()), pageable) :
+                    contentRepository.findAllByCreatorIdAndParentIdIsNullAndDeletedAtIsNull(UUID.fromString(userData.userId()), pageable))
                     .orElse(new PageImpl<>(new ArrayList<>()));
             case "comment" -> (getDeletedContents ?
-                    contentRepository.findAllByCreatorIdAndParentIdIsNotNull(externalUser.getId(), pageable) :
-                    contentRepository.findAllByCreatorIdAndParentIdIsNotNullAndDeletedAtIsNull(externalUser.getId(), pageable))
+                    contentRepository.findAllByCreatorIdAndParentIdIsNotNull(UUID.fromString(userData.userId()), pageable) :
+                    contentRepository.findAllByCreatorIdAndParentIdIsNotNullAndDeletedAtIsNull(UUID.fromString(userData.userId()), pageable))
                     .orElse(new PageImpl<>(new ArrayList<>()));
             default -> throw new RuntimeException("Invalid post type");
         };
