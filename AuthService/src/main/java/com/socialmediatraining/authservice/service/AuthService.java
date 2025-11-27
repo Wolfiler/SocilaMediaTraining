@@ -25,6 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static com.socialmediatraining.authenticationcommons.JwtUtils.getSubIdFromAuthHeader;
+import static com.socialmediatraining.authenticationcommons.JwtUtils.getUsernameFromAuthHeader;
 
 @Service
 @Slf4j
@@ -183,7 +184,9 @@ public class AuthService {
 
     public String deleteUser(String authHeader){
         String subId = getSubIdFromAuthHeader(authHeader);
+        String username = getUsernameFromAuthHeader(authHeader);
         keycloak.realm(keycloakProperties.realm).users().get(subId).remove();
+        userDataKafkaTemplate.send("user-deleted", new SimpleUserDataObject(subId, username));
         return "User deleted successfully";
     }
 }

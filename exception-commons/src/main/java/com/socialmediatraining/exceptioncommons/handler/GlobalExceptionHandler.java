@@ -69,16 +69,12 @@ public class GlobalExceptionHandler {//Could use aspect to log error message
                 ));
     }
 
-    //Mainly for proper error code in case of service instance unavailable
-    @ExceptionHandler(HttpServerErrorException.class)
-    ResponseEntity<Map<String, String>> handleHttpStatusCodeException(HttpServerErrorException e) {
-        log.error("HTTP Status Code Exception: {}", e.getMessage());
-        return ResponseEntity.status(e.getStatusCode())
-                .body(GetErrorBody(
-                        e.getMessage(),
-                        HttpStatus.valueOf(e.getStatusCode().value())
-                ));
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    ResponseEntity<Map<String, String>> handleUserAlreadyExistsException(UserAlreadyExistsException e) {
+        log.error(e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
     }
+
 
     private Map<String,String> GetErrorBody(String message, HttpStatus status){
         Map<String,String> error = new HashMap<>();

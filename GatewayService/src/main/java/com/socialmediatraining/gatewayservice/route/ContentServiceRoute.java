@@ -71,6 +71,14 @@ public class ContentServiceRoute extends AbstractRoute {
                         )
                         .uri("lb://content-service")
                 )
+                .route("content-service", route -> route
+                        .path("/content-service/v3/api-docs")
+                        .and().method(GET)
+                        .filters(filter -> filter
+                                .filter(loggingFilter())
+                        )
+                        .uri("lb://content-service")
+                )
                 .build();
     }
 }

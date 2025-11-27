@@ -50,6 +50,12 @@ public class FollowService {
         log.info("Kafka topic caught -> User {} activity updated", simpleUserData);
     }
 
+    @KafkaListener(topics = "user-deleted", groupId = "user-service" )
+    public void deleteUser(SimpleUserDataObject simpleUserData){
+        externalUserRepository.deleteById(UUID.fromString(simpleUserData.userId()));
+        log.info("Kafka topic caught -> User {} deleted", simpleUserData.username());
+    }
+
     @KafkaListener(topics = "created-new-user", groupId = "user-service" )
     public void createNewUser(SimpleUserDataObject simpleUserData) {
         ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);

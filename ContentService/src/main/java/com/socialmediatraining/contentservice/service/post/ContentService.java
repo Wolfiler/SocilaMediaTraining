@@ -136,6 +136,7 @@ public class ContentService {
         }
 
         content.setDeletedAt(LocalDateTime.now());
+        content.setText("Deleted");
         contentRepository.save(content);
 
         return String.format("Post %s deleted successfully",postId);

@@ -21,7 +21,12 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
     @Getter
-    private final static String[] authorizedPaths = {"/api/v1/auth/signup","/api/v1/auth/signin"};
+    private final static String[] authorizedPaths = {
+            "/api/v1/auth/signup",
+            "/api/v1/auth/signin",
+            "/authentication-service/v3/api-docs",
+            "/authentication-service/v3/api-docs/**"
+    };
     private final static String[] adminPaths = {"/api/v1/auth/admin/**"};
     private final static String[] defaultApiPaths = {"/api/v1/auth/**"};
     private final static String[] userPaths = {"/api/v1/auth/user/**"};
@@ -41,6 +46,7 @@ public class SecurityConfig {
 
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizeRequest -> {
                     authorizeRequest.requestMatchers(authorizedPaths).permitAll();
                     authorizeRequest.requestMatchers(adminPaths).hasAnyRole(RoleUtils.GetAdminRoleNamesAsList().toArray(new String[0]));

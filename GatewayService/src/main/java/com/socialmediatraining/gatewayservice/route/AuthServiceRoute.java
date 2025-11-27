@@ -54,6 +54,14 @@ public class AuthServiceRoute extends AbstractRoute {
                         )
                         .uri("lb://authentication-service")
                 )
+                .route("authentication-service", route -> route
+                        .path("/authentication-service/v3/api-docs")
+                        .and().method(GET)
+                        .filters(filter -> filter
+                                .filter(loggingFilter())
+                        )
+                        .uri("lb://authentication-service")
+                )
                 .build();
     }
 }

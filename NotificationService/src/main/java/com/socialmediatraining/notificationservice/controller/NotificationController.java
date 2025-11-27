@@ -3,6 +3,8 @@ package com.socialmediatraining.notificationservice.controller;
 import com.socialmediatraining.dtoutils.dto.PageResponse;
 import com.socialmediatraining.notificationservice.entity.Notification;
 import com.socialmediatraining.notificationservice.service.NotificationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Pattern;
 import org.bson.json.JsonObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api/v1/notifications")
 @PreAuthorize("@roleUtils.hasAnyUserRole(authentication)")
+@Tag(name = "Notification Service", description = "API for notification related operations")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -28,6 +31,7 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
+    @Operation(summary = "Change the given notification status to READ (normally from UNREAD)")
     @PutMapping("/{notificationId}/read")
     public ResponseEntity<Mono<String>> readNotification(
             @RequestHeader("Authorization") String authHeader,
@@ -37,6 +41,7 @@ public class NotificationController {
                 .body(notificationService.setNotificationToRead(authHeader,notificationId));
     }
 
+    @Operation(summary = "Delete the given authenticated user notification")
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<Mono<String>> deleteNotification(
             @RequestHeader("Authorization") String authHeader,
@@ -46,6 +51,7 @@ public class NotificationController {
                 .body(notificationService.deleteNotification(authHeader,notificationId));
     }
 
+    @Operation(summary = "Get all notification of the user with the demanded status")
     @GetMapping("")
     public Mono<ResponseEntity<PageResponse<Notification>>> getAllNotification(
             @RequestHeader("Authorization") String authHeader,
@@ -61,5 +67,4 @@ public class NotificationController {
                 .map(PageResponse::from)
                 .map(ResponseEntity::ok);
     }
-
 }

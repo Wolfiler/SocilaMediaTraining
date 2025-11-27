@@ -38,6 +38,14 @@ public class UserServiceRoute extends AbstractRoute{
                         )
                         .uri("lb://user-service")
                 )
+                .route("user-service", route -> route
+                        .path("/user-service/v3/api-docs")
+                        .and().method(GET)
+                        .filters(filter -> filter
+                                .filter(loggingFilter())
+                        )
+                        .uri("lb://user-service")
+                )
                 .build();
     }
 }

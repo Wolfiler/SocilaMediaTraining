@@ -6,6 +6,7 @@ import com.socialmediatraining.dtoutils.dto.SimpleUserDataObject;
 import com.socialmediatraining.exceptioncommons.exception.UserDoesntExistsException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -47,14 +48,12 @@ public class UserCacheService {
     @KafkaListener(topics = "created-new-user", groupId = "content-service" )
     @Cacheable(value = "users", key = "#result.username", condition = "#result != null",sync = true)
     public SimpleUserDataObject createNewUser(SimpleUserDataObject simpleUserData) {
-        ExternalUser newUser = externalUserRepository.findExternalUserByUsername(simpleUserData.username()).orElse(null);
-        if(newUser != null){
-            //TODO custom error throw here
-            log.error("User already exists in database. This should not happen, there might be an issue in user creation flow");
-            return null;
+        boolean userExists = externalUserRepository.existsExternalUserByUsername(simpleUserData.username());
+        if(userExists){
+            throw new UserDoesntExistsException("User already exists in database. This should not happen, there might be an issue in user creation flow");
         }
 
-        newUser = ExternalUser.builder()
+        ExternalUser newUser = ExternalUser.builder()
                 .id(UUID.fromString(simpleUserData.userId()))
                 .username(simpleUserData.username())
                 .build();
@@ -66,6 +65,13 @@ public class UserCacheService {
     public ExternalUser getExternalUserByUsername(String username){
         return externalUserRepository.findExternalUserByUsername(username)
                 .orElseThrow(() -> new UserDoesntExistsException("User not found: " + username));
+    }
+
+    @CacheEvict(value = "users", key = "#simpleUserData.username()")
+    @KafkaListener(topics = "user-deleted", groupId = "user-service" )
+    public void deleteUser(SimpleUserDataObject simpleUserData){
+        externalUserRepository.deleteById(UUID.fromString(simpleUserData.userId()));
+        log.info("Kafka topic caught -> User {} deleted", simpleUserData.username());
     }
 
     public void saveExternalUser(ExternalUser user){

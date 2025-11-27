@@ -14,8 +14,8 @@ CREATE TABLE content(
     text TEXT NOT NULL,
     media_urls JSONB default NULL,
     deleted_at TIMESTAMP,
-    FOREIGN KEY (parent_id) REFERENCES content(id),
-    FOREIGN KEY (creator_id) REFERENCES external_user(id)
+    FOREIGN KEY (parent_id) REFERENCES content(id) ON DELETE CASCADE ,
+    FOREIGN KEY (creator_id) REFERENCES external_user(id) ON DELETE CASCADE
 );
 
 CREATE TABLE user_content_like(

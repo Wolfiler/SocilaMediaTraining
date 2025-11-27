@@ -38,6 +38,14 @@ public class NotificationRoute extends AbstractRoute {
                         )
                         .uri("lb://notification-service")
                 )
+                .route("notification-service", route -> route
+                        .path("/notification-service/v3/api-docs")
+                        .and().method(GET)
+                        .filters(filter -> filter
+                                .filter(loggingFilter())
+                        )
+                        .uri("lb://notification-service")
+                )
                 .build();
     }
 }

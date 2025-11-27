@@ -1,5 +1,6 @@
 package com.socialmediatraining.authservice.controller;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("@roleUtils.hasAnyAdminRole(authentication)")
 public class AuthAdminController {
 
+    @Hidden
     @GetMapping("/welcome")
     public ResponseEntity<String> signIn() {
         return ResponseEntity.ok().body("Welcome admin");
