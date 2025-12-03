@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
@@ -45,7 +46,6 @@ public class ContentService {
     private final KafkaTemplate<String, SimpleUserDataObject> userDataKafkaTemplate;
     private final KafkaTemplate<String, UserCommentNotification> userCommentKafkaTemplate;
     private final WebClient.Builder webClientBuilder;
-
     private final UserCacheService userCacheService;
 
     @Autowired
@@ -58,6 +58,10 @@ public class ContentService {
     }
 
     public ContentResponse createContent(String authHeader, ContentRequest post){
+        if(post == null){
+            throw new HttpServerErrorException(HttpStatus.BAD_REQUEST,"ContentRequest cannot be null when creating content");
+        }
+
         SimpleUserDataObject userData = userCacheService.getOrCreatNewExternalUserIfNotExists(
                 getSubIdFromAuthHeader(authHeader),
                 getUsernameFromAuthHeader(authHeader));
@@ -143,21 +147,22 @@ public class ContentService {
     }
 
     public ContentResponse getVisibleContentById(UUID contentId) {
-        return getContentById(contentId,false);
+        ContentResponseAdmin responseAdmin = getContentById(contentId,false);
+        return responseAdmin.postResponse();
     }
 
-    public ContentResponse getContentByIdWithDeleted(UUID contentId) {
+    public ContentResponseAdmin getContentByIdWithDeleted(UUID contentId) {
         return getContentById(contentId,true);
     }
 
-    private ContentResponse getContentById(UUID contentId, boolean getDeletedContent) {
+    private ContentResponseAdmin getContentById(UUID contentId, boolean getDeletedContent) {
         Content content = (getDeletedContent ?
                 contentRepository.findById(contentId)
                 : contentRepository.findByIdAndDeletedAtIsNull(contentId))
                 .orElseThrow(() ->
                         new PostNotFoundException("Cannot find post with userId "+ contentId));
 
-        return ContentResponse.fromEntity(content);
+        return ContentResponseAdmin.fromEntity(content);
     }
 
     public PageResponse<ContentResponse> getAllVisibleContentFromUser(String username, Pageable pageable,String postType){
@@ -166,8 +171,8 @@ public class ContentService {
         return PageResponse.from(new PageImpl<>(contentResponses,pageable,contentResponses.size()));
     }
 
-    public PageResponse<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable){
-        List<ContentResponseAdmin> content = getAllContentFromUser(username,pageable,true,"all");
+    public PageResponse<ContentResponseAdmin> getAllContentFromUser(String username, Pageable pageable, String postType){
+        List<ContentResponseAdmin> content = getAllContentFromUser(username,pageable,true,postType);
         return PageResponse.from(new PageImpl<>(content,pageable,content.size()));
     }
 
@@ -194,7 +199,7 @@ public class ContentService {
                 .collect(Collectors.toList());
     }
 
-    private Flux<SimpleUserDataObject> getListOfFollowedUser(String username, String authHeader){
+    public Flux<SimpleUserDataObject> getListOfFollowedUser(String username, String authHeader){
         return webClientBuilder.baseUrl("http://user-service").build()
                 .get()
                 .uri(uriBuilder -> uriBuilder

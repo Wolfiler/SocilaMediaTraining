@@ -16,6 +16,10 @@ public class JwtUtils {
     }
 
     private static JsonNode GetDecodedPayload(String authHeader){
+        if(authHeader == null || !authHeader.startsWith("Bearer ")){
+            throw new IllegalArgumentException("Invalid Authorization header format");
+        }
+
         String token = authHeader.replace("Bearer ", "");
         String[] chunks = token.split("\\.");
         Base64.Decoder decoder = Base64.getUrlDecoder();

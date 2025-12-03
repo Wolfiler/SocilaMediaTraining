@@ -43,7 +43,7 @@ public class ContentController {
     @PostMapping("/posts")
     public ResponseEntity<ContentResponse> createPost(
             @RequestBody @Valid ContentRequest post,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(value = "Authorization",required = true) String authHeader) {
         return ResponseEntity.status(HttpStatus.CREATED).body(contentService.createContent(authHeader, post));
     }
 
@@ -92,12 +92,11 @@ public class ContentController {
     @Operation(summary = "Get the authenticated user's feed")
     @GetMapping("/feed")
     public ResponseEntity<Flux<PageResponse<ContentResponse>>> getUserFeed(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ){
         Pageable pageable = PageRequest.of(page, size);
-
         return ResponseEntity.status(HttpStatus.OK).body(contentService.getUserFeed(JwtUtils.getUsernameFromAuthHeader(authHeader),authHeader,pageable));
     }
 }

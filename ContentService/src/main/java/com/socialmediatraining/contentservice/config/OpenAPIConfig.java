@@ -12,7 +12,6 @@ import java.util.List;
 @OpenAPIDefinition
 @Configuration
 public class OpenAPIConfig {
-
     @Bean
     public OpenAPI contentServiceOpenApiConfig() {
         return new OpenAPI().info(new Info()

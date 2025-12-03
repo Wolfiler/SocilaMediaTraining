@@ -41,13 +41,10 @@ public class LikeService {
         ExternalUser externalUser = userCacheService.getExternalUserByUsername(getUsernameFromAuthHeader(authHeader));
 
         Content post = contentRepository.findByIdAndDeletedAtIsNull(contentId)
-                .orElse(null);
-        if(post == null){
-            throw new PostNotFoundException("Post with userId " + contentId + " doesn't exists");
-        }
+                .orElseThrow(() -> new PostNotFoundException("Post with userId " + contentId + " doesn't exists"));
 
         if (userContentLikeRepository.existsByUserIdAndContentId(externalUser.getId(), contentId)) {
-            throw new UserActionForbiddenException("User " + externalUser.getUsername() + " already liked post with userId " + contentId);
+            throw new UserActionForbiddenException("User " + externalUser.getUsername() + " already liked post with id " + contentId);
         }
 
         UserContentLike userContentLike = externalUser.addContentLike(post);
@@ -59,9 +56,6 @@ public class LikeService {
     public String deleteLike(String authHeader, UUID contentId){
         String username = getUsernameFromAuthHeader(authHeader);
         ExternalUser externalUser = userCacheService.getExternalUserByUsername(username);
-        if(externalUser == null){
-            throw new UserDoesntExistsException("Error while fetching user from database when deleting like");
-        }
 
         Content post = contentRepository.findByIdAndDeletedAtIsNull(contentId)
                 .orElse(null);

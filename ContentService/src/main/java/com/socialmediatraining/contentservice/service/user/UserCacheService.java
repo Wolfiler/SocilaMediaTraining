@@ -8,8 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.UUID;
 
@@ -33,6 +35,10 @@ public class UserCacheService {
 
     @Cacheable(value = "users", key = "#username", condition = "#result != null",sync = true)
     public SimpleUserDataObject getOrCreatNewExternalUserIfNotExists(String subId, String username){
+        if(subId == null || username == null){
+            throw new UserDoesntExistsException("Impossible to create a user without user id, the user account probably doesn't exists");
+        }
+
         ExternalUser externalUser = externalUserRepository.findExternalUserByUsername(username).orElse(null);
         if(externalUser == null){
             log.info("User doesn't exists, creating it now");
@@ -48,6 +54,10 @@ public class UserCacheService {
     @KafkaListener(topics = "created-new-user", groupId = "content-service" )
     @Cacheable(value = "users", key = "#result.username", condition = "#result != null",sync = true)
     public SimpleUserDataObject createNewUser(SimpleUserDataObject simpleUserData) {
+        if(simpleUserData == null){
+            throw new HttpServerErrorException(HttpStatus.BAD_REQUEST,"User data cannot be null when creating user");
+        }
+
         boolean userExists = externalUserRepository.existsExternalUserByUsername(simpleUserData.username());
         if(userExists){
             throw new UserDoesntExistsException("User already exists in database. This should not happen, there might be an issue in user creation flow");

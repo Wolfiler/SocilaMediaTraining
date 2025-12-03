@@ -11,7 +11,7 @@ CREATE TABLE content(
     parent_id UUID default NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
-    text TEXT NOT NULL,
+    text VARCHAR(255) NOT NULL,
     media_urls JSONB default NULL,
     deleted_at TIMESTAMP,
     FOREIGN KEY (parent_id) REFERENCES content(id) ON DELETE CASCADE ,

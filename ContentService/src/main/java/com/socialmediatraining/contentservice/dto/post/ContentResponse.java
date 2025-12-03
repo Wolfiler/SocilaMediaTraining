@@ -1,8 +1,11 @@
 package com.socialmediatraining.contentservice.dto.post;
 
 import com.socialmediatraining.contentservice.entity.Content;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,7 +28,7 @@ public record ContentResponse(
                 created_at,
                 updated_at,
                 text,
-                media_urls);
+                media_urls == null ? new HashMap<>() : media_urls);
     }
 
     public static ContentResponse fromEntity(Content content){
@@ -36,6 +39,6 @@ public record ContentResponse(
                 content.getCreatedAt(),
                 content.getUpdatedAt(),
                 content.getText(),
-                content.getMediaUrls());
+                content.getMediaUrls() == null ? new HashMap<>() : content.getMediaUrls());
     }
 }

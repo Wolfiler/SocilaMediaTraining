@@ -35,11 +35,12 @@ public class LikeController {
 
     @Operation(summary = "Create a like between authenticated user and given content (post or comment) id")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Content liked")
+            @ApiResponse(responseCode = "201", description = "Content liked"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Missing or invalid Authorization header"),
     })
     @PostMapping("/{postId}")
     public ResponseEntity<String> likePost(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization",required = true) String authHeader,
             @PathVariable("postId") UUID postId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(likeService.likeContent(authHeader, postId));
     }
@@ -57,7 +58,7 @@ public class LikeController {
     @Operation(summary = "Delete a like between authenticated user and given content (post or comment) id")
     @DeleteMapping("/{postId}")
     public ResponseEntity<String> deleteLike(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization", required = true) String authHeader,
             @PathVariable("postId") UUID postId) {
         return ResponseEntity.status(HttpStatus.OK).body(likeService.deleteLike(authHeader, postId));
     }

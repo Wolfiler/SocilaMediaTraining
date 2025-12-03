@@ -20,10 +20,6 @@ public interface ContentRepository extends JpaRepository<Content, UUID> {
     Optional<Page<Content>> findAllByCreatorIdAndParentIdIsNotNull(UUID creatorId, Pageable pageable);
     Optional<Content> findByIdAndDeletedAtIsNull(UUID id);
 
-    //Forced to do this because ids are not the same between databases,
-    //and content has the database userId saved as creator_id, instead of the user_id,
-    //shared between databases and used as a unique userId along with username.
-    //This will need to be changed in the future if I have the time
     @Query( "SELECT c " +
             "FROM Content c " +
             "INNER JOIN ExternalUser u ON c.creatorId = u.id " +

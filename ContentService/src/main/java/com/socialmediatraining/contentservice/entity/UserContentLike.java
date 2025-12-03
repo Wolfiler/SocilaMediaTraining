@@ -37,4 +37,20 @@ public class UserContentLike {
     @Column(name = "created_at")
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    public void setUser(ExternalUser user){
+        if(user == null && this.user != null){
+            this.user.removeContentLike(this.content);
+            this.content = null;
+        }
+        this.user = user;
+    }
+
+    public void setContent(Content content){
+        if(content == null && this.content != null){
+            this.user.removeContentLike(this.content);
+            this.user = null;
+        }
+        this.content = content;
+    }
 }

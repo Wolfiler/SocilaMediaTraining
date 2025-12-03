@@ -6,10 +6,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.Timestamp;
@@ -75,7 +77,24 @@ public class GlobalExceptionHandler {//Could use aspect to log error message
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
     }
 
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<Map<String, String>> handleMissingRequestHeaderException(MissingRequestHeaderException e) {
 
+        if ("Authorization".equals(e.getHeaderName())) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(GetErrorBody(e.getMessage(),HttpStatus.UNAUTHORIZED));
+        }
+
+        log.error(e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.error(e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(GetErrorBody(e.getMessage(),HttpStatus.BAD_REQUEST));
+    }
+    
     private Map<String,String> GetErrorBody(String message, HttpStatus status){
         Map<String,String> error = new HashMap<>();
         error.put("HttpStatus: ", status.toString());

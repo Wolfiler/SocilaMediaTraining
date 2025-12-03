@@ -45,12 +45,12 @@ public class AdminPostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.status(HttpStatus.OK).body(contentService.getAllContentFromUser(username,pageable));
+        return ResponseEntity.status(HttpStatus.OK).body(contentService.getAllContentFromUser(username,pageable,type));
     }
 
     @Operation(summary = "Get a post information, including deleted ones")
     @GetMapping("/{postId}")
-    public ResponseEntity<ContentResponse> getPostById(@PathVariable("postId") UUID postId) {
+    public ResponseEntity<ContentResponseAdmin> getPostById(@PathVariable("postId") UUID postId) {
         return ResponseEntity.status(HttpStatus.OK).body(contentService.getContentByIdWithDeleted(postId));
     }
 }
